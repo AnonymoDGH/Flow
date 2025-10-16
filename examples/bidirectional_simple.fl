@@ -1,0 +1,64 @@
+# Ejecución Bidireccional Simplificada
+# Usa memoria compartida para comunicación "hacia atrás"
+
+print("=" * 60)
+print("SIMULACIÓN DE EJECUCIÓN BIDIRECCIONAL")
+print("=" * 60)
+
+# FASE 1: Python - Inicialización
+def phase1():
+    print("\n[Python Fase 1] Inicializando...")
+    data = [1, 2, 3, 4, 5]
+    flow_set('data', data)
+    flow_set('phase1_done', True)
+    print(f"  ✓ Datos: {data}")
+
+phase1()
+
+# FASE 2: JavaScript - Procesamiento
+fn phase2():
+    console.log("\n[JavaScript Fase 2] Procesando...");
+    const data = flowGet('data');
+    const doubled = data.map(n => n * 2);
+    
+    flowSet('processed_data', doubled);
+    flowSet('needs_validation', true);
+    flowSet('phase2_done', true);
+    
+    console.log(`  ✓ Procesado: ${doubled}`);
+
+phase2()
+
+# FASE 3: C++ - Cálculo
+cpp
+std::cout << "\n[C++ Fase 3] Calculando..." << std::endl;
+
+long long result = 3628800;  // 10!
+flowSet("calculation", std::to_string(result));
+flowSet("phase3_done", "true");
+std::cout << "  ✓ Cálculo: " << result << std::endl;
+std::cout << "  ✓ Fase 3 completada" << std::endl;
+end
+
+# FASE 4 (CLEANUP): Python - Decisión basada en resultados anteriores
+# CLEANUP
+print("\n[Python Fase 4] Tomando decisión basada en fases anteriores...")
+
+phase1_done = flow_get('phase1_done', False)
+phase2_done = flow_get('phase2_done', False)
+phase3_done = flow_get('phase3_done', False)
+
+print(f"  Fase 1: {'✓' if phase1_done else '✗'}")
+print(f"  Fase 2: {'✓' if phase2_done else '✗'}")
+print(f"  Fase 3: {'✓' if phase3_done else '✗'}")
+
+if phase1_done and phase2_done and phase3_done:
+    processed = flow_get('processed_data')
+    calculation = flow_get('calculation')
+    print("\n" + "=" * 60)
+    print("TODAS LAS FASES COMPLETADAS")
+    print("=" * 60)
+    print(f"  Datos procesados: {processed}")
+    print(f"  Cálculo final: {calculation}")
+    print("\n  ✓ Pipeline bidireccional simulado exitosamente")
+    print("=" * 60)

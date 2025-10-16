@@ -1,0 +1,69 @@
+# GitHub Actions CI/CD para Flow
+name: Flow CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Setup C++
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++
+    
+    - name: Install Flow dependencies
+      run: |
+        pip install pandas numpy requests
+        npm install express axios
+    
+    - name: Run Flow tests
+      run: |
+        ./flow test.fl
+    
+    - name: Check test results (JUnit XML)
+      run: |
+        if [ -f __flow_junit__.xml ]; then
+          echo "✓ JUnit XML generated"
+          cat __flow_junit__.xml
+        fi
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: __flow_junit__.xml
+    
+    - name: Show metrics
+      run: |
+        ./flow metrics
+    
+    - name: Upload metrics
+      uses: actions/upload-artifact@v3
+      with:
+        name: flow-metrics
+        path: __flow_metrics__.json
+    
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        files: __flow_junit__.xml

@@ -1,0 +1,79 @@
+# Test de Ejecución Paralela
+# Python, JavaScript y C++ se ejecutan SIMULTÁNEAMENTE
+
+@parallel
+
+print("=" * 60)
+print("MODO PARALELO - FLOW v2.0")
+print("=" * 60)
+print("\n[Python] Iniciando procesamiento paralelo...")
+print("[Python] Simulando tarea de I/O (lectura de archivos)...")
+
+import time
+import json
+
+# Simular lectura de archivos (I/O bound)
+for i in range(5):
+    print(f"[Python] Leyendo archivo {i+1}/5...")
+    time.sleep(0.3)  # Simula I/O
+
+# Guardar resultado
+data = {'files_read': 5, 'total_size': 1024}
+with open('python_result.json', 'w') as f:
+    json.dump(data, f)
+
+print("[Python] OK Procesamiento Python completado")
+
+# JavaScript se ejecuta EN PARALELO con Python
+fn processData():
+    console.log("\n[JavaScript] Iniciando transformación paralela...");
+    console.log("[JavaScript] Simulando tarea de CPU (transformación)...");
+    
+    // Simular procesamiento CPU-bound
+    for (let i = 0; i < 5; i++) {
+        console.log(`[JavaScript] Transformando batch ${i+1}/5...`);
+        
+        // Simular trabajo CPU
+        let sum = 0;
+        for (let j = 0; j < 10000000; j++) {
+            sum += Math.sqrt(j);
+        }
+    }
+    
+    const fs = require('fs');
+    fs.writeFileSync('js_result.json', JSON.stringify({
+        batches_processed: 5,
+        total_records: 50000
+    }));
+    
+    console.log("[JavaScript] OK Transformacion JavaScript completada");
+
+processData()
+
+# C++ también se ejecuta EN PARALELO
+cpp
+#include <chrono>
+#include <thread>
+
+std::cout << "\n[C++] Iniciando cálculos paralelos..." << std::endl;
+std::cout << "[C++] Simulando tarea de CPU intensiva..." << std::endl;
+
+// Simular cálculos pesados
+for (int i = 0; i < 5; ++i) {
+    std::cout << "[C++] Calculando iteración " << (i+1) << "/5..." << std::endl;
+    
+    // Simular trabajo CPU intensivo
+    long long sum = 0;
+    for (long long j = 0; j < 100000000; ++j) {
+        sum += j;
+    }
+    
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+}
+
+std::ofstream result("cpp_result.txt");
+result << "iterations:5\nsum:4999999950000000\n";
+result.close();
+
+std::cout << "[C++] OK Calculos C++ completados" << std::endl;
+end

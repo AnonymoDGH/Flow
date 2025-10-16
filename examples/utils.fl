@@ -1,0 +1,12 @@
+# Utilidades compartidas
+
+def calculate_stats(numbers):
+    import statistics
+    return {
+        'mean': statistics.mean(numbers),
+        'median': statistics.median(numbers),
+        'stdev': statistics.stdev(numbers) if len(numbers) > 1 else 0
+    }
+
+fn format_number(num):
+    return num.toFixed(2);

@@ -1,0 +1,22 @@
+# Test de multi-archivo
+import "utils.fl"
+
+# Usar funciones importadas
+def main():
+    numbers = [10, 20, 30, 40, 50]
+    stats = calculate_stats(numbers)
+    
+    print(f"Mean: {stats['mean']}")
+    print(f"Median: {stats['median']}")
+    print(f"StDev: {stats['stdev']}")
+    
+    flow_set('mean', stats['mean'])
+
+main()
+
+fn display():
+    const mean = flowGet('mean', 0);
+    const formatted = format_number(mean);
+    console.log(`Formatted mean: ${formatted}`);
+
+display()

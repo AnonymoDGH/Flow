@@ -1,0 +1,17 @@
+# Test de manejo de errores
+
+def step1():
+    print("[Python] Step 1: OK")
+    flow_set('step1', 'completed')
+
+def step2():
+    print("[Python] Step 2: Generando error...")
+    raise Exception("Error intencional en Python")
+
+step1()
+step2()
+
+fn step3():
+    console.log("[JavaScript] Step 3: Este no debería ejecutarse");
+
+step3()

@@ -1,0 +1,101 @@
+# Test de Ejecución Bidireccional
+# Python → JavaScript → Python → C++ → JavaScript → Python
+
+@bidirectional
+
+print("=" * 60)
+print("MODO BIDIRECCIONAL - FLOW v2.0")
+print("=" * 60)
+
+# BLOQUE 1: Python - Inicialización
+def init_data():
+    print("\n[Python Block 1] Inicializando datos...")
+    data = [1, 2, 3, 4, 5]
+    flow_set('data', data)
+    flow_set('step', 1)
+    print(f"  ✓ Datos iniciales: {data}")
+
+init_data()
+
+# BLOQUE 2: JavaScript - Primera transformación
+fn transform_step1():
+    console.log("\n[JavaScript Block 2] Primera transformación...");
+    const data = flowGet('data');
+    const doubled = data.map(n => n * 2);
+    
+    flowSet('data', doubled);
+    flowSet('step', 2);
+    console.log(`  ✓ Datos duplicados: ${doubled}`);
+
+transform_step1()
+
+# BLOQUE 3: Python - Análisis intermedio
+def analyze():
+    print("\n[Python Block 3] Análisis intermedio...")
+    data = flow_get('data')
+    total = sum(data)
+    mean = total / len(data)
+    
+    flow_set('total', total)
+    flow_set('mean', mean)
+    flow_set('step', 3)
+    print(f"  ✓ Total: {total}, Media: {mean}")
+
+analyze()
+
+# BLOQUE 4: C++ - Cálculo intensivo
+cpp
+std::cout << "\n[C++ Block 4] Cálculo intensivo..." << std::endl;
+
+int total = std::stoi(flowGet("total", "0"));
+long long factorial = 1;
+
+for (int i = 1; i <= 10; ++i) {
+    factorial *= i;
+}
+
+flowSet("factorial", std::to_string(factorial));
+flowSet("step", "4");
+
+std::cout << "  ✓ Factorial de 10: " << factorial << std::endl;
+end
+
+# BLOQUE 5: JavaScript - Validación
+fn validate():
+    console.log("\n[JavaScript Block 5] Validación...");
+    const step = flowGet('step');
+    const factorial = flowGet('factorial');
+    
+    const isValid = factorial > 0;
+    flowSet('validated', isValid);
+    flowSet('step', 5);
+    
+    console.log(`  ✓ Validación: ${isValid ? 'PASSED' : 'FAILED'}`);
+
+validate()
+
+# BLOQUE 6: Python - Reporte final
+def final_report():
+    print("\n[Python Block 6] Reporte final...")
+    print("=" * 60)
+    print("RESUMEN DEL PIPELINE BIDIRECCIONAL")
+    print("=" * 60)
+    
+    data = flow_get('data')
+    total = flow_get('total')
+    mean = flow_get('mean')
+    factorial = flow_get('factorial')
+    validated = flow_get('validated')
+    step = flow_get('step')
+    
+    print(f"\n  Datos finales:    {data}")
+    print(f"  Total:            {total}")
+    print(f"  Media:            {mean}")
+    print(f"  Factorial:        {factorial}")
+    print(f"  Validado:         {validated}")
+    print(f"  Pasos ejecutados: {step}")
+    print("\n" + "=" * 60)
+    print("PIPELINE COMPLETADO EXITOSAMENTE")
+    print("=" * 60)
+
+final_report()

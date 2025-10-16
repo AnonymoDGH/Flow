@@ -1,0 +1,63 @@
+# Test de memoria compartida entre lenguajes
+
+# Python: Genera datos y los guarda en memoria compartida
+def generate_data():
+    print("[Python] Generando datos...")
+    data = [1, 2, 3, 4, 5]
+    total = sum(data)
+    
+    # Guardar en memoria compartida
+    flow_set('numbers', data)
+    flow_set('total', total)
+    flow_set('language', 'Python')
+    
+    print(f"[Python] Total calculado: {total}")
+    print(f"[Python] Datos guardados en memoria compartida")
+
+generate_data()
+
+# JavaScript: Lee de memoria compartida y procesa
+async fn process_data():
+    console.log("\n[JavaScript] Leyendo de memoria compartida...");
+    
+    const numbers = flowGet('numbers', []);
+    const total = flowGet('total', 0);
+    const lang = flowGet('language', 'unknown');
+    
+    console.log(`[JavaScript] Recibido de ${lang}: ${numbers}`);
+    console.log(`[JavaScript] Total: ${total}`);
+    
+    // Procesar y guardar resultado
+    const doubled = numbers.map(n => n * 2);
+    const newTotal = doubled.reduce((a, b) => a + b, 0);
+    
+    flowSet('doubled', doubled);
+    flowSet('doubled_total', newTotal);
+    flowSet('processed_by', 'JavaScript');
+    
+    console.log(`[JavaScript] Números duplicados: ${doubled}`);
+    console.log(`[JavaScript] Nuevo total: ${newTotal}`);
+
+process_data()
+
+# C++: Lee resultados finales
+cpp
+std::cout << "\n[C++] Leyendo resultados finales..." << std::endl;
+
+// Leer de memoria compartida
+std::string processedBy = flowGet("processed_by", "unknown");
+std::cout << "[C++] Procesado por: " << processedBy << std::endl;
+
+// Guardar resultado final
+flowSet("status", "completed");
+flowSet("final_stage", "C++");
+
+std::cout << "[C++] Pipeline completado exitosamente" << std::endl;
+end
+
+# CLEANUP
+import os
+print("\n[Cleanup] Limpiando archivos temporales...")
+if os.path.exists('__flow_mem__.json'):
+    os.remove('__flow_mem__.json')
+print("[Cleanup] Memoria compartida limpiada")

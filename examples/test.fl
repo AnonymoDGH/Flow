@@ -1,0 +1,34 @@
+@data
+
+def test_py():
+    print("Python works!")
+    data = {'a': 1, 'b': 2}
+    import json
+    with open('data.json', 'w') as f:
+        json.dump(data, f)
+
+test_py()
+
+async fn test_js():
+    console.log("JavaScript works!");
+    const fs = require('fs');
+    const data = JSON.parse(fs.readFileSync('data.json', 'utf8'));
+    console.log("Data from Python:", data);
+    fs.writeFileSync('result.txt', 'SUCCESS');
+
+test_js()
+
+cpp
+std::ifstream file("result.txt");
+std::string result;
+std::getline(file, result);
+std::cout << "C++ reads: " << result << std::endl;
+end
+
+# CLEANUP
+import os
+if os.path.exists('data.json'):
+    os.remove('data.json')
+if os.path.exists('result.txt'):
+    os.remove('result.txt')
+print("Cleanup done")

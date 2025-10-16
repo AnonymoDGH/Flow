@@ -1,0 +1,86 @@
+# Comparación de Performance: Serial vs Paralelo
+# Este archivo demuestra la diferencia de velocidad
+
+# EJECUTAR PRIMERO EN MODO SERIAL (comentar @parallel)
+# LUEGO EN MODO PARALELO (descomentar @parallel)
+
+@parallel  # Comenta esta línea para modo serial
+
+import time
+start_time = time.time()
+
+print("=" * 60)
+print("COMPARACIÓN DE PERFORMANCE")
+print("=" * 60)
+
+# Python: Simula I/O (lectura de archivos)
+print("\n[Python] Iniciando lectura de archivos...")
+for i in range(3):
+    print(f"[Python] Leyendo archivo {i+1}/3...")
+    time.sleep(1)  # Simula I/O lento
+
+python_time = time.time() - start_time
+print(f"[Python] Completado en {python_time:.2f}s")
+
+# JavaScript: Simula procesamiento CPU
+fn processData():
+    const start = Date.now();
+    console.log("\n[JavaScript] Iniciando procesamiento...");
+    
+    for (let i = 0; i < 3; i++) {
+        console.log(`[JavaScript] Procesando batch ${i+1}/3...`);
+        
+        // Simular trabajo CPU
+        let sum = 0;
+        for (let j = 0; j < 50000000; j++) {
+            sum += Math.sqrt(j);
+        }
+    }
+    
+    const jsTime = ((Date.now() - start) / 1000).toFixed(2);
+    console.log(`[JavaScript] Completado en ${jsTime}s`);
+
+processData()
+
+# C++: Simula cálculos intensivos
+cpp
+#include <chrono>
+#include <thread>
+
+auto start = std::chrono::high_resolution_clock::now();
+
+std::cout << "\n[C++] Iniciando calculos..." << std::endl;
+
+for (int i = 0; i < 3; ++i) {
+    std::cout << "[C++] Calculando iteracion " << (i+1) << "/3..." << std::endl;
+    
+    // Simular trabajo CPU intensivo
+    long long sum = 0;
+    for (long long j = 0; j < 100000000; ++j) {
+        sum += j;
+    }
+    
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+}
+
+auto end = std::chrono::high_resolution_clock::now();
+auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+double cppTime = duration.count() / 1000.0;
+
+std::cout << "[C++] Completado en " << cppTime << "s" << std::endl;
+end
+
+# Reporte final
+def final_report():
+    total_time = time.time() - start_time
+    
+    print("\n" + "=" * 60)
+    print("REPORTE DE PERFORMANCE")
+    print("=" * 60)
+    print(f"\nTiempo total: {total_time:.2f}s")
+    print("\nMODO SERIAL esperado: ~9s (3s + 3s + 3s)")
+    print("MODO PARALELO esperado: ~3s (max(3s, 3s, 3s))")
+    print("\nSpeedup: ~3x mas rapido en modo paralelo")
+    print("=" * 60)
+
+final_report()

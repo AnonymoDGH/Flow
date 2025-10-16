@@ -1,0 +1,185 @@
+# Flow v2.0 - Demostración Completa de Características Avanzadas
+# Incluye: Memoria compartida, Fail-fast, Multi-archivo, Manejo de errores
+
+@data
+
+print("=" * 60)
+print("FLOW v2.0 - ADVANCED FEATURES DEMO")
+print("=" * 60)
+
+# ============================================================
+# ETAPA 1: PYTHON - Procesamiento de Datos con Memoria Compartida
+# ============================================================
+
+def process_sales_data():
+    print("\n[PYTHON] Etapa 1: Procesamiento de datos")
+    print("-" * 60)
+    
+    # Simular datos de ventas
+    sales = {
+        'Q1': [1000, 1200, 1100, 1300],
+        'Q2': [1400, 1500, 1600, 1550],
+        'Q3': [1700, 1650, 1800, 1750],
+        'Q4': [2000, 2100, 2050, 2200]
+    }
+    
+    # Calcular totales
+    totals = {q: sum(values) for q, values in sales.items()}
+    annual_total = sum(totals.values())
+    
+    print(f"  ✓ Datos procesados: {len(sales)} trimestres")
+    print(f"  ✓ Total anual: ${annual_total:,}")
+    
+    # MEMORIA COMPARTIDA: Guardar resultados
+    flow_set('quarterly_totals', totals)
+    flow_set('annual_total', annual_total)
+    flow_set('quarters', list(sales.keys()))
+    
+    print("  ✓ Datos guardados en memoria compartida")
+    
+    # Validación con fail-fast
+    if annual_total < 0:
+        raise ValueError("Total anual negativo - datos inválidos")
+    
+    return totals
+
+try:
+    quarterly_data = process_sales_data()
+except Exception as e:
+    print(f"  ✗ Error: {e}")
+    raise
+
+# ============================================================
+# ETAPA 2: JAVASCRIPT - API y Análisis Asíncrono
+# ============================================================
+
+async fn analyze_trends():
+    console.log("\n[JAVASCRIPT] Etapa 2: Análisis de tendencias");
+    console.log("-".repeat(60));
+    
+    // MEMORIA COMPARTIDA: Leer datos de Python
+    const quarters = flowGet('quarters', []);
+    const totals = flowGet('quarterly_totals', {});
+    const annual = flowGet('annual_total', 0);
+    
+    console.log(`  ✓ Datos recibidos de Python: ${quarters.length} trimestres`);
+    console.log(`  ✓ Total anual: $${annual.toLocaleString()}`);
+    
+    // Calcular crecimiento trimestral
+    const values = quarters.map(q => totals[q]);
+    const growth = [];
+    
+    for (let i = 1; i < values.length; i++) {
+        const rate = ((values[i] - values[i-1]) / values[i-1] * 100).toFixed(2);
+        growth.push(parseFloat(rate));
+    }
+    
+    const avgGrowth = (growth.reduce((a, b) => a + b, 0) / growth.length).toFixed(2);
+    
+    console.log(`  ✓ Crecimiento promedio: ${avgGrowth}%`);
+    
+    // Simular llamada API asíncrona
+    console.log("  → Enviando datos a API...");
+    await new Promise(resolve => setTimeout(resolve, 500));
+    console.log("  ✓ Datos enviados exitosamente");
+    
+    // MEMORIA COMPARTIDA: Guardar análisis
+    flowSet('growth_rates', growth);
+    flowSet('avg_growth', parseFloat(avgGrowth));
+    flowSet('trend', avgGrowth > 0 ? 'positive' : 'negative');
+    
+    console.log("  ✓ Análisis guardado en memoria compartida");
+
+analyze_trends()
+
+# ============================================================
+# ETAPA 3: C++ - Cálculos de Alto Rendimiento
+# ============================================================
+
+cpp
+std::cout << "\n[C++] Etapa 3: Cálculos de rendimiento" << std::endl;
+std::cout << std::string(60, '-') << std::endl;
+
+// MEMORIA COMPARTIDA: Leer análisis de JavaScript
+std::string trend = flowGet("trend", "unknown");
+std::cout << "  ✓ Tendencia detectada: " << trend << std::endl;
+
+// Simular cálculos intensivos
+long long operations = 0;
+double result = 0.0;
+
+for (int i = 0; i < 1000000; ++i) {
+    result += std::sqrt(i) * std::sin(i * 0.001);
+    operations++;
+}
+
+std::cout << "  ✓ Operaciones completadas: " << operations << std::endl;
+std::cout << "  ✓ Resultado: " << result << std::endl;
+
+// MEMORIA COMPARTIDA: Guardar resultado final
+flowSet("cpp_operations", std::to_string(operations));
+flowSet("performance_score", "excellent");
+flowSet("pipeline_status", "completed");
+
+std::cout << "  ✓ Resultados guardados en memoria compartida" << std::endl;
+end
+
+# ============================================================
+# CLEANUP: Reporte Final y Limpieza
+# ============================================================
+
+# CLEANUP
+import os
+import json
+
+# Generar reporte final con todos los datos
+print("\n[PYTHON] Etapa 4: Generación de reporte final")
+print("-" * 60)
+
+# MEMORIA COMPARTIDA: Leer todos los resultados
+annual = flow_get('annual_total', 0)
+avg_growth = flow_get('avg_growth', 0)
+trend = flow_get('trend', 'unknown')
+operations = flow_get('cpp_operations', 0)
+status = flow_get('pipeline_status', 'unknown')
+
+print("\n" + "=" * 60)
+print("REPORTE FINAL - PIPELINE COMPLETADO")
+print("=" * 60)
+print(f"\n  Total Anual:        ${annual:,}")
+print(f"  Crecimiento Prom:   {avg_growth}%")
+print(f"  Tendencia:          {trend.upper()}")
+print(f"  Operaciones C++:    {operations}")
+print(f"  Estado:             {status.upper()}")
+print("\n" + "=" * 60)
+
+# Guardar reporte
+report = {
+    'annual_total': annual,
+    'avg_growth': avg_growth,
+    'trend': trend,
+    'operations': operations,
+    'status': status
+}
+
+with open('final_report.json', 'w') as f:
+    json.dump(report, f, indent=2)
+
+print("\n  ✓ Reporte guardado en 'final_report.json'")
+
+print("\n[CLEANUP] Limpiando archivos temporales...")
+print("-" * 60)
+
+files_to_clean = ['final_report.json']
+cleaned = 0
+
+for file in files_to_clean:
+    if os.path.exists(file):
+        os.remove(file)
+        cleaned += 1
+        print(f"  ✓ Eliminado: {file}")
+
+print(f"\n  ✓ {cleaned} archivo(s) limpiado(s)")
+print("\n" + "=" * 60)
+print("DEMO COMPLETADA EXITOSAMENTE")
+print("=" * 60)

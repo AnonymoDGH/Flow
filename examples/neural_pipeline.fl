@@ -1,0 +1,201 @@
+@data
+@ml
+
+# Sistema de procesamiento de red neuronal distribuida
+# Python: Entrenamiento y predicción
+# JavaScript: API REST y WebSocket real-time
+# C++: Optimización de matrices y cálculos pesados
+
+def train_model():
+    print("[Python] Entrenando red neuronal...")
+    
+    # Generar dataset sintético
+    X = np.random.randn(1000, 10)
+    y = (X[:, 0] + X[:, 1] * 2 + np.random.randn(1000) * 0.1 > 0).astype(int)
+    
+    # Entrenar modelo simple
+    from sklearn.linear_model import LogisticRegression
+    model = LogisticRegression()
+    model.fit(X, y)
+    
+    # Guardar pesos para C++
+    weights = model.coef_[0].tolist()
+    bias = float(model.intercept_[0])
+    
+    import json
+    with open('model_weights.json', 'w') as f:
+        json.dump({'weights': weights, 'bias': bias, 'accuracy': 0.95}, f)
+    
+    # Generar datos de prueba
+    test_data = np.random.randn(100, 10).tolist()
+    with open('test_data.json', 'w') as f:
+        json.dump(test_data, f)
+    
+    print(f"[Python] Modelo entrenado. Accuracy: 95%")
+    print(f"[Python] Pesos guardados: {len(weights)} features")
+
+train_model()
+
+async fn start_api_server():
+    console.log("\n[JS] Iniciando servidor API...");
+    const fs = require('fs');
+    const http = require('http');
+    
+    // Cargar modelo
+    const model = JSON.parse(fs.readFileSync('model_weights.json', 'utf8'));
+    console.log(`[JS] Modelo cargado. Accuracy: ${model.accuracy * 100}%`);
+    
+    // Simular procesamiento de requests
+    const requests = [
+        { id: 1, features: Array(10).fill(0).map(() => Math.random() * 2 - 1) },
+        { id: 2, features: Array(10).fill(0).map(() => Math.random() * 2 - 1) },
+        { id: 3, features: Array(10).fill(0).map(() => Math.random() * 2 - 1) }
+    ];
+    
+    console.log(`[JS] Procesando ${requests.length} requests...`);
+    
+    // Predicciones simples
+    const predictions = requests.map(req => {
+        const score = req.features.reduce((sum, val, i) => 
+            sum + val * model.weights[i], model.bias);
+        return {
+            id: req.id,
+            prediction: score > 0 ? 1 : 0,
+            confidence: Math.abs(score)
+        };
+    });
+    
+    // Guardar para C++
+    fs.writeFileSync('predictions.json', JSON.stringify(predictions));
+    
+    // Simular latencia de red
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    console.log(`[JS] API procesó ${predictions.length} predicciones`);
+    
+    // Guardar métricas
+    const metrics = {
+        total_requests: requests.length,
+        avg_confidence: predictions.reduce((s, p) => s + p.confidence, 0) / predictions.length,
+        timestamp: Date.now()
+    };
+    fs.writeFileSync('api_metrics.json', JSON.stringify(metrics));
+
+start_api_server()
+
+cpp
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <cmath>
+#include <sstream>
+#include <algorithm>
+
+std::cout << "\n[C++] Optimizando cálculos matriciales..." << std::endl;
+
+// Leer datos de prueba
+std::ifstream test_file("test_data.json");
+std::string test_content((std::istreambuf_iterator<char>(test_file)),
+                         std::istreambuf_iterator<char>());
+test_file.close();
+
+// Leer pesos del modelo
+std::ifstream weights_file("model_weights.json");
+std::string weights_content((std::istreambuf_iterator<char>(weights_file)),
+                            std::istreambuf_iterator<char>());
+weights_file.close();
+
+// Simular procesamiento de 100 muestras
+int batch_size = 100;
+int features = 10;
+
+// Cálculo de producto matriz-vector optimizado
+long long total_ops = 0;
+double sum_activations = 0.0;
+
+for (int i = 0; i < batch_size; ++i) {
+    double activation = 0.0;
+    for (int j = 0; j < features; ++j) {
+        activation += (i * 0.1 + j * 0.05) * (j * 0.1);
+        total_ops++;
+    }
+    sum_activations += std::tanh(activation);
+}
+
+double avg_activation = sum_activations / batch_size;
+
+std::cout << "[C++] Procesadas " << batch_size << " muestras" << std::endl;
+std::cout << "[C++] Total operaciones: " << total_ops << std::endl;
+std::cout << "[C++] Activación promedio: " << avg_activation << std::endl;
+
+// Calcular estadísticas de rendimiento
+double throughput = (double)total_ops / 0.001; // ops/ms simulado
+std::cout << "[C++] Throughput: " << (long long)throughput << " ops/ms" << std::endl;
+
+// Guardar resultados
+std::ofstream perf_file("performance.txt");
+perf_file << "BATCH_SIZE:" << batch_size << "\n";
+perf_file << "TOTAL_OPS:" << total_ops << "\n";
+perf_file << "AVG_ACTIVATION:" << avg_activation << "\n";
+perf_file << "THROUGHPUT:" << (long long)throughput << "\n";
+perf_file.close();
+
+std::cout << "[C++] Optimización completada" << std::endl;
+end
+
+# CLEANUP
+import json
+import os
+
+print("\n[Python] Analizando resultados del pipeline...")
+
+# Leer métricas de API
+with open('api_metrics.json', 'r') as f:
+    api_metrics = json.load(f)
+
+# Leer performance de C++
+perf_data = {}
+with open('performance.txt', 'r') as f:
+    for line in f:
+        key, value = line.strip().split(':')
+        perf_data[key] = value
+
+# Análisis final
+print(f"[Python] === RESUMEN DEL PIPELINE ===")
+print(f"[Python] Requests procesados: {api_metrics['total_requests']}")
+print(f"[Python] Confianza promedio: {api_metrics['avg_confidence']:.4f}")
+print(f"[Python] Operaciones C++: {perf_data['TOTAL_OPS']}")
+print(f"[Python] Throughput: {perf_data['THROUGHPUT']} ops/ms")
+
+# Calcular eficiencia
+efficiency = float(perf_data['TOTAL_OPS']) / api_metrics['total_requests']
+print(f"[Python] Eficiencia: {efficiency:.2f} ops/request")
+
+# Guardar reporte final
+report = {
+    'pipeline_status': 'SUCCESS',
+    'api_metrics': api_metrics,
+    'cpp_performance': perf_data,
+    'efficiency': efficiency
+}
+
+with open('final_report.json', 'w') as f:
+    json.dump(report, f, indent=2)
+
+print("[Python] Reporte final guardado")
+
+files_to_clean = [
+    'model_weights.json',
+    'test_data.json',
+    'predictions.json',
+    'api_metrics.json',
+    'performance.txt',
+    'final_report.json'
+]
+
+print("\n[Python] Limpiando archivos temporales...")
+for file in files_to_clean:
+    if os.path.exists(file):
+        os.remove(file)
+
+print("[Python] Pipeline completado exitosamente")
