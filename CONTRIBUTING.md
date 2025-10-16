@@ -2,6 +2,14 @@
 
 Thank you for your interest in contributing to Flow! 🎉
 
+**[English](#english) | [Español](#español)**
+
+---
+
+## English
+
+### Thank you for your interest in contributing to Flow! 🎉
+
 ## Getting Started
 
 1. **Fork the repository**
