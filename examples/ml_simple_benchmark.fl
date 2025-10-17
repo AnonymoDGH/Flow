@@ -1,0 +1,170 @@
+# Python: Machine Learning con 1000 archivos
+```python
+import numpy as np
+import time
+
+print("[Python ML] Iniciando benchmark con 1000 archivos...")
+start_time = time.time()
+
+# Generar 1000 archivos falsos
+np.random.seed(42)
+files = []
+for i in range(1000):
+    file_size = np.random.randint(1000, 10000000)
+    file_age = np.random.randint(1, 365)
+    file_access = np.random.randint(0, 100)
+    is_suspicious = 1 if np.random.random() > 0.7 else 0
+    files.append([file_size, file_age, file_access, is_suspicious])
+
+X = np.array(files)
+print(f"[Python ML] Generados {len(files)} archivos")
+
+# Entrenar modelo simple
+weights = np.random.randn(4)
+learning_rate = 0.01
+
+for epoch in range(50):
+    predictions = np.dot(X, weights)
+    errors = predictions - X[:, 3]
+    weights -= learning_rate * np.dot(X.T, errors) / len(X)
+
+# Evaluar
+final_pred = np.dot(X, weights)
+accuracy = np.mean((final_pred > 0.5) == X[:, 3])
+suspicious_count = np.sum(final_pred > 0.5)
+
+elapsed = time.time() - start_time
+print(f"[Python ML] Completado en {elapsed:.3f}s")
+print(f"[Python ML] Precisión: {accuracy*100:.1f}%")
+print(f"[Python ML] Archivos sospechosos: {int(suspicious_count)}")
+
+flow_set("ml_time", str(elapsed))
+flow_set("ml_accuracy", str(accuracy))
+flow_set("suspicious", str(int(suspicious_count)))
+```
+
+# JavaScript: Análisis de patrones
+```javascript
+console.log("[JavaScript] Analizando patrones...");
+const start = Date.now();
+
+const files = [];
+for (let i = 0; i < 1000; i++) {
+    files.push({
+        id: i,
+        ext: ['txt', 'pdf', 'jpg', 'exe'][Math.floor(Math.random() * 4)],
+        size: Math.floor(Math.random() * 10000000),
+        encrypted: Math.random() > 0.8
+    });
+}
+
+const byExt = {};
+files.forEach(f => {
+    byExt[f.ext] = (byExt[f.ext] || 0) + 1;
+});
+
+const encrypted = files.filter(f => f.encrypted).length;
+const avgSize = files.reduce((s, f) => s + f.size, 0) / files.length;
+
+const elapsed = (Date.now() - start) / 1000;
+console.log(`[JavaScript] Completado en ${elapsed.toFixed(3)}s`);
+console.log(`[JavaScript] Distribución:`, byExt);
+console.log(`[JavaScript] Encriptados: ${encrypted}`);
+console.log(`[JavaScript] Tamaño promedio: ${(avgSize/1024/1024).toFixed(2)} MB`);
+
+flowSet("js_time", elapsed.toFixed(3));
+flowSet("encrypted", encrypted.toString());
+```
+
+# C++: Procesamiento de alto rendimiento
+```cpp
+#include <iostream>
+#include <vector>
+#include <random>
+#include <chrono>
+#include <cmath>
+
+int main() {
+    std::cout << "[C++] Procesamiento de alto rendimiento..." << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    std::mt19937 gen(42);
+    std::uniform_real_distribution<> dist(0.0, 1.0);
+    
+    std::vector<double> risk_scores;
+    risk_scores.reserve(1000);
+    
+    for (int i = 0; i < 1000; i++) {
+        risk_scores.push_back(dist(gen));
+    }
+    
+    double sum = 0.0;
+    for (double score : risk_scores) {
+        sum += score;
+    }
+    double avg = sum / risk_scores.size();
+    
+    double variance = 0.0;
+    for (double score : risk_scores) {
+        variance += std::pow(score - avg, 2);
+    }
+    double std_dev = std::sqrt(variance / risk_scores.size());
+    
+    int high_risk = 0;
+    for (double score : risk_scores) {
+        if (score > 0.7) high_risk++;
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    double seconds = ms.count() / 1000.0;
+    
+    std::cout << "[C++] Completado en " << seconds << "s" << std::endl;
+    std::cout << "[C++] Riesgo promedio: " << avg << std::endl;
+    std::cout << "[C++] Desviación estándar: " << std_dev << std::endl;
+    std::cout << "[C++] Alto riesgo: " << high_risk << std::endl;
+    
+    flowSet("cpp_time", std::to_string(seconds));
+    flowSet("high_risk", std::to_string(high_risk));
+    
+    return 0;
+}
+```
+
+# Python: Reporte final
+```python
+print("\n" + "="*50)
+print("BENCHMARK FLOW - 1000 ARCHIVOS")
+print("="*50)
+
+ml_time = float(flowGet("ml_time", "0"))
+ml_acc = float(flowGet("ml_accuracy", "0"))
+susp = int(flowGet("suspicious", "0"))
+
+js_time = float(flowGet("js_time", "0"))
+enc = int(flowGet("encrypted", "0"))
+
+cpp_time = float(flowGet("cpp_time", "0"))
+high_risk = int(flowGet("high_risk", "0"))
+
+print(f"\n[PYTHON ML]")
+print(f"  Tiempo: {ml_time:.3f}s")
+print(f"  Precisión: {ml_acc*100:.1f}%")
+print(f"  Sospechosos: {susp}/1000")
+
+print(f"\n[JAVASCRIPT]")
+print(f"  Tiempo: {js_time:.3f}s")
+print(f"  Encriptados: {enc}/1000")
+
+print(f"\n[C++]")
+print(f"  Tiempo: {cpp_time:.3f}s")
+print(f"  Alto riesgo: {high_risk}/1000")
+
+total = ml_time + js_time + cpp_time
+print(f"\n[TOTAL]")
+print(f"  Tiempo: {total:.3f}s")
+print(f"  Velocidad: {1000/total:.0f} archivos/s")
+print(f"  Throughput: {3000/total:.0f} ops/s")
+
+print("\n" + "="*50 + "\n")
+```

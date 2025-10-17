@@ -1,0 +1,234 @@
+# Python: Generar datos falsos y entrenar modelo
+```python
+import numpy as np
+import time
+from datetime import datetime
+
+print(f"[Python] Generando 1000 archivos de datos falsos...")
+start = time.time()
+
+# Generar datos falsos para 1000 archivos
+np.random.seed(42)
+file_data = []
+for i in range(1000):
+    # Simular datos de un archivo: tamaño, tipo, fecha, permisos
+    size = np.random.randint(100, 10000000)  # bytes
+    file_type = np.random.choice(['txt', 'pdf', 'jpg', 'doc', 'exe'])
+    age_days = np.random.randint(1, 3650)  # días
+    permissions = np.random.randint(0, 777)
+    
+    file_data.append([size, age_days, permissions, 
+                     1 if file_type in ['exe', 'pdf'] else 0])
+
+X = np.array(file_data)
+# Clasificación: 0=seguro, 1=sospechoso
+y = np.random.choice([0, 1], size=1000, p=[0.7, 0.3])
+
+print(f"[Python] Datos generados: {X.shape}")
+print(f"[Python] Entrenando modelo de clasificación...")
+
+# Modelo simple de clasificación (regresión logística manual)
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+# Inicializar pesos
+weights = np.random.randn(X.shape[1])
+bias = 0
+learning_rate = 0.01
+epochs = 100
+
+# Entrenamiento
+for epoch in range(epochs):
+    # Forward pass
+    z = np.dot(X, weights) + bias
+    predictions = sigmoid(z)
+    
+    # Calcular error
+    error = predictions - y
+    
+    # Backward pass
+    weights -= learning_rate * np.dot(X.T, error) / len(y)
+    bias -= learning_rate * np.sum(error) / len(y)
+
+# Predicciones finales
+final_predictions = sigmoid(np.dot(X, weights) + bias)
+accuracy = np.mean((final_predictions > 0.5) == y)
+
+elapsed = time.time() - start
+print(f"[Python] Modelo entrenado en {elapsed:.2f}s")
+print(f"[Python] Precisión: {accuracy*100:.2f}%")
+print(f"[Python] Archivos sospechosos detectados: {np.sum(final_predictions > 0.5)}")
+
+# Compartir resultados
+flow_set("ml_accuracy", str(accuracy))
+flow_set("ml_time", str(elapsed))
+flow_set("suspicious_count", str(int(np.sum(final_predictions > 0.5))))
+```
+
+# JavaScript: Análisis de patrones y visualización
+```javascript
+console.log("[JavaScript] Analizando patrones de archivos...");
+const startTime = Date.now();
+
+// Generar datos de análisis de patrones
+const patterns = [];
+for (let i = 0; i < 1000; i++) {
+    const filePattern = {
+        id: i,
+        extension: ['txt', 'pdf', 'jpg', 'doc', 'exe'][Math.floor(Math.random() * 5)],
+        accessCount: Math.floor(Math.random() * 100),
+        lastModified: Date.now() - Math.floor(Math.random() * 365 * 24 * 60 * 60 * 1000),
+        encrypted: Math.random() > 0.8
+    };
+    patterns.push(filePattern);
+}
+
+// Análisis de frecuencias
+const extensionCount = {};
+const encryptedCount = patterns.filter(p => p.encrypted).length;
+
+patterns.forEach(p => {
+    extensionCount[p.extension] = (extensionCount[p.extension] || 0) + 1;
+});
+
+// Calcular estadísticas
+const avgAccess = patterns.reduce((sum, p) => sum + p.accessCount, 0) / patterns.length;
+const highActivityFiles = patterns.filter(p => p.accessCount > 50).length;
+
+const elapsed = (Date.now() - startTime) / 1000;
+console.log(`[JavaScript] Análisis completado en ${elapsed.toFixed(2)}s`);
+console.log(`[JavaScript] Distribución de extensiones:`, extensionCount);
+console.log(`[JavaScript] Archivos encriptados: ${encryptedCount}`);
+console.log(`[JavaScript] Promedio de accesos: ${avgAccess.toFixed(2)}`);
+console.log(`[JavaScript] Archivos de alta actividad: ${highActivityFiles}`);
+
+// Compartir resultados
+flowSet("pattern_time", elapsed.toString());
+flowSet("encrypted_files", encryptedCount.toString());
+flowSet("high_activity", highActivityFiles.toString());
+```
+
+# C++: Procesamiento de alto rendimiento
+```cpp
+#include <iostream>
+#include <vector>
+#include <random>
+#include <chrono>
+#include <algorithm>
+#include <cmath>
+
+int main() {
+    std::cout << "[C++] Procesamiento de alto rendimiento..." << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    std::random_device rd;
+    std::mt19937 gen(42);
+    std::uniform_int_distribution<> size_dist(1000, 50000000);
+    std::uniform_real_distribution<> score_dist(0.0, 1.0);
+    
+    struct FileMetrics {
+        int id;
+        long long size;
+        double risk_score;
+        double performance_score;
+    };
+    
+    std::vector<FileMetrics> files;
+    files.reserve(1000);
+    
+    for (int i = 0; i < 1000; i++) {
+        FileMetrics fm;
+        fm.id = i;
+        fm.size = size_dist(gen);
+        fm.risk_score = score_dist(gen);
+        fm.performance_score = score_dist(gen);
+        files.push_back(fm);
+    }
+    
+    long long total_size = 0;
+    double total_risk = 0.0;
+    double total_perf = 0.0;
+    
+    for (const auto& f : files) {
+        total_size += f.size;
+        total_risk += f.risk_score;
+        total_perf += f.performance_score;
+    }
+    
+    double avg_size = static_cast<double>(total_size) / files.size();
+    double avg_risk = total_risk / files.size();
+    double avg_perf = total_perf / files.size();
+    
+    double variance_risk = 0.0;
+    for (const auto& f : files) {
+        variance_risk += std::pow(f.risk_score - avg_risk, 2);
+    }
+    double std_dev_risk = std::sqrt(variance_risk / files.size());
+    
+    int high_risk_count = 0;
+    for (const auto& f : files) {
+        if (f.risk_score > 0.7) high_risk_count++;
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    
+    std::cout << "[C++] Procesamiento completado en " << duration.count() / 1000.0 << "s" << std::endl;
+    std::cout << "[C++] Tamaño promedio: " << avg_size / 1024 / 1024 << " MB" << std::endl;
+    std::cout << "[C++] Riesgo promedio: " << avg_risk << std::endl;
+    std::cout << "[C++] Desviación estándar: " << std_dev_risk << std::endl;
+    std::cout << "[C++] Alto riesgo (>0.7): " << high_risk_count << std::endl;
+    
+    flowSet("cpp_time", std::to_string(duration.count() / 1000.0));
+    flowSet("high_risk_count", std::to_string(high_risk_count));
+    flowSet("avg_risk", std::to_string(avg_risk));
+    
+    return 0;
+}
+```
+
+# Python: Consolidar resultados y generar reporte
+```python
+import time
+
+print("\n" + "="*60)
+print("REPORTE FINAL DE ANÁLISIS ML - 1000 ARCHIVOS")
+print("="*60)
+
+ml_accuracy = float(flowGet("ml_accuracy", "0"))
+ml_time = float(flowGet("ml_time", "0"))
+suspicious = int(flowGet("suspicious_count", "0"))
+
+pattern_time = float(flowGet("pattern_time", "0"))
+encrypted = int(flowGet("encrypted_files", "0"))
+high_activity = int(flowGet("high_activity", "0"))
+
+cpp_time = float(flowGet("cpp_time", "0"))
+high_risk = int(flowGet("high_risk_count", "0"))
+avg_risk = float(flowGet("avg_risk", "0"))
+
+print(f"\n[MODELO ML]")
+print(f"  - Precisión del modelo: {ml_accuracy*100:.2f}%")
+print(f"  - Tiempo de entrenamiento: {ml_time:.2f}s")
+print(f"  - Archivos sospechosos: {suspicious}/1000")
+
+print(f"\n[ANÁLISIS DE PATRONES]")
+print(f"  - Tiempo de análisis: {pattern_time:.2f}s")
+print(f"  - Archivos encriptados: {encrypted}/1000")
+print(f"  - Alta actividad: {high_activity}/1000")
+
+print(f"\n[PROCESAMIENTO C++]")
+print(f"  - Tiempo de procesamiento: {cpp_time:.2f}s")
+print(f"  - Alto riesgo detectado: {high_risk}/1000")
+print(f"  - Riesgo promedio: {avg_risk:.3f}")
+
+total_time = ml_time + pattern_time + cpp_time
+print(f"\n[RENDIMIENTO TOTAL]")
+print(f"  - Tiempo total: {total_time:.2f}s")
+print(f"  - Archivos procesados/segundo: {1000/total_time:.0f}")
+print(f"  - Throughput: {1000*3/total_time:.0f} operaciones/s")
+
+print("\n" + "="*60)
+print("Análisis completado exitosamente!")
+print("="*60 + "\n")
+```

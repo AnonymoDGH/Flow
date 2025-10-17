@@ -1,0 +1,270 @@
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle, Rectangle, Polygon
+import matplotlib.animation as animation
+from datetime import datetime
+import time
+
+print("="*60)
+print("FLOW ML - GENERADOR DE FORMAS GEOMETRICAS")
+print("Entrenamiento en tiempo real con GUI")
+print("="*60)
+
+# Configuración
+IMG_SIZE = 28
+NUM_CLASSES = 3  # cuadrado, triangulo, circulo
+BATCH_SIZE = 32
+
+# Generar datos de formas
+def generate_shape(shape_type):
+    img = np.zeros((IMG_SIZE, IMG_SIZE))
+    
+    if shape_type == 0:  # Cuadrado
+        size = np.random.randint(8, 20)
+        x = np.random.randint(2, IMG_SIZE - size - 2)
+        y = np.random.randint(2, IMG_SIZE - size - 2)
+        img[y:y+size, x:x+size] = 1
+        
+    elif shape_type == 1:  # Triangulo
+        size = np.random.randint(10, 22)
+        x = np.random.randint(2, IMG_SIZE - size - 2)
+        y = np.random.randint(2, IMG_SIZE - size - 2)
+        for i in range(size):
+            start = x + i // 2
+            end = x + size - i // 2
+            img[y + i, start:end] = 1
+            
+    elif shape_type == 2:  # Circulo
+        radius = np.random.randint(5, 12)
+        cx = np.random.randint(radius + 2, IMG_SIZE - radius - 2)
+        cy = np.random.randint(radius + 2, IMG_SIZE - radius - 2)
+        y, x = np.ogrid[:IMG_SIZE, :IMG_SIZE]
+        mask = (x - cx)**2 + (y - cy)**2 <= radius**2
+        img[mask] = 1
+    
+    # Agregar ruido
+    noise = np.random.normal(0, 0.1, (IMG_SIZE, IMG_SIZE))
+    img = np.clip(img + noise, 0, 1)
+    
+    return img.flatten()
+
+# Red neuronal simple
+class SimpleNN:
+    def __init__(self):
+        self.W1 = np.random.randn(IMG_SIZE * IMG_SIZE, 64) * 0.01
+        self.b1 = np.zeros((1, 64))
+        self.W2 = np.random.randn(64, 32) * 0.01
+        self.b2 = np.zeros((1, 32))
+        self.W3 = np.random.randn(32, NUM_CLASSES) * 0.01
+        self.b3 = np.zeros((1, NUM_CLASSES))
+        
+    def relu(self, x):
+        return np.maximum(0, x)
+    
+    def softmax(self, x):
+        exp_x = np.exp(x - np.max(x, axis=1, keepdims=True))
+        return exp_x / np.sum(exp_x, axis=1, keepdims=True)
+    
+    def forward(self, X):
+        self.z1 = np.dot(X, self.W1) + self.b1
+        self.a1 = self.relu(self.z1)
+        self.z2 = np.dot(self.a1, self.W2) + self.b2
+        self.a2 = self.relu(self.z2)
+        self.z3 = np.dot(self.a2, self.W3) + self.b3
+        self.a3 = self.softmax(self.z3)
+        return self.a3
+    
+    def backward(self, X, y, learning_rate=0.01):
+        m = X.shape[0]
+        
+        # One-hot encode y
+        y_onehot = np.zeros((m, NUM_CLASSES))
+        y_onehot[np.arange(m), y] = 1
+        
+        # Backprop
+        dz3 = self.a3 - y_onehot
+        dW3 = np.dot(self.a2.T, dz3) / m
+        db3 = np.sum(dz3, axis=0, keepdims=True) / m
+        
+        da2 = np.dot(dz3, self.W3.T)
+        dz2 = da2 * (self.a2 > 0)
+        dW2 = np.dot(self.a1.T, dz2) / m
+        db2 = np.sum(dz2, axis=0, keepdims=True) / m
+        
+        da1 = np.dot(dz2, self.W2.T)
+        dz1 = da1 * (self.a1 > 0)
+        dW1 = np.dot(X.T, dz1) / m
+        db1 = np.sum(dz1, axis=0, keepdims=True) / m
+        
+        # Update
+        self.W3 -= learning_rate * dW3
+        self.b3 -= learning_rate * db3
+        self.W2 -= learning_rate * dW2
+        self.b2 -= learning_rate * db2
+        self.W1 -= learning_rate * dW1
+        self.b1 -= learning_rate * db1
+
+# Inicializar modelo
+model = SimpleNN()
+losses = []
+accuracies = []
+epoch_times = []
+start_time = time.time()
+
+# Configurar GUI
+plt.ion()
+fig = plt.figure(figsize=(14, 8))
+fig.suptitle('Flow ML - Entrenamiento en Tiempo Real', fontsize=16, fontweight='bold')
+
+# Subplot para formas generadas
+ax1 = plt.subplot(2, 3, 1)
+ax1.set_title('Cuadrado')
+ax1.axis('off')
+
+ax2 = plt.subplot(2, 3, 2)
+ax2.set_title('Triangulo')
+ax2.axis('off')
+
+ax3 = plt.subplot(2, 3, 3)
+ax3.set_title('Circulo')
+ax3.axis('off')
+
+# Subplot para loss
+ax4 = plt.subplot(2, 3, 4)
+ax4.set_title('Loss')
+ax4.set_xlabel('Epoca')
+ax4.set_ylabel('Loss')
+ax4.grid(True, alpha=0.3)
+
+# Subplot para accuracy
+ax5 = plt.subplot(2, 3, 5)
+ax5.set_title('Precision')
+ax5.set_xlabel('Epoca')
+ax5.set_ylabel('Accuracy (%)')
+ax5.grid(True, alpha=0.3)
+
+# Subplot para estadísticas
+ax6 = plt.subplot(2, 3, 6)
+ax6.axis('off')
+
+print("\n[Iniciando entrenamiento infinito...]")
+print("Presiona Ctrl+C para detener\n")
+
+epoch = 0
+try:
+    while True:
+        epoch += 1
+        epoch_start = time.time()
+        
+        # Generar batch de entrenamiento
+        X_batch = []
+        y_batch = []
+        for _ in range(BATCH_SIZE):
+            shape_type = np.random.randint(0, NUM_CLASSES)
+            img = generate_shape(shape_type)
+            X_batch.append(img)
+            y_batch.append(shape_type)
+        
+        X_batch = np.array(X_batch)
+        y_batch = np.array(y_batch)
+        
+        # Forward y backward
+        predictions = model.forward(X_batch)
+        model.backward(X_batch, y_batch, learning_rate=0.1)
+        
+        # Calcular métricas
+        loss = -np.mean(np.log(predictions[np.arange(BATCH_SIZE), y_batch] + 1e-10))
+        pred_classes = np.argmax(predictions, axis=1)
+        accuracy = np.mean(pred_classes == y_batch) * 100
+        
+        losses.append(loss)
+        accuracies.append(accuracy)
+        epoch_time = time.time() - epoch_start
+        epoch_times.append(epoch_time)
+        
+        # Actualizar GUI cada 10 épocas
+        if epoch % 10 == 0:
+            # Generar ejemplos de cada forma
+            square = generate_shape(0).reshape(IMG_SIZE, IMG_SIZE)
+            triangle = generate_shape(1).reshape(IMG_SIZE, IMG_SIZE)
+            circle = generate_shape(2).reshape(IMG_SIZE, IMG_SIZE)
+            
+            ax1.clear()
+            ax1.imshow(square, cmap='viridis')
+            ax1.set_title('Cuadrado')
+            ax1.axis('off')
+            
+            ax2.clear()
+            ax2.imshow(triangle, cmap='viridis')
+            ax2.set_title('Triangulo')
+            ax2.axis('off')
+            
+            ax3.clear()
+            ax3.imshow(circle, cmap='viridis')
+            ax3.set_title('Circulo')
+            ax3.axis('off')
+            
+            # Actualizar gráficas
+            ax4.clear()
+            ax4.plot(losses, 'b-', linewidth=2)
+            ax4.set_title('Loss')
+            ax4.set_xlabel('Epoca')
+            ax4.set_ylabel('Loss')
+            ax4.grid(True, alpha=0.3)
+            
+            ax5.clear()
+            ax5.plot(accuracies, 'g-', linewidth=2)
+            ax5.set_title('Precision')
+            ax5.set_xlabel('Epoca')
+            ax5.set_ylabel('Accuracy (%)')
+            ax5.grid(True, alpha=0.3)
+            ax5.set_ylim([0, 100])
+            
+            # Estadísticas
+            ax6.clear()
+            ax6.axis('off')
+            total_time = time.time() - start_time
+            avg_epoch_time = np.mean(epoch_times[-100:]) if len(epoch_times) > 0 else 0
+            
+            stats_text = f"""
+ESTADISTICAS DE ENTRENAMIENTO
+
+Epoca: {epoch}
+Loss actual: {loss:.4f}
+Accuracy: {accuracy:.1f}%
+
+Mejor accuracy: {max(accuracies):.1f}%
+Loss promedio: {np.mean(losses[-100:]):.4f}
+
+Tiempo total: {total_time:.1f}s
+Tiempo/epoca: {avg_epoch_time*1000:.1f}ms
+Epocas/seg: {1/avg_epoch_time:.1f}
+
+Muestras procesadas: {epoch * BATCH_SIZE}
+            """
+            
+            ax6.text(0.1, 0.5, stats_text, fontsize=11, 
+                    verticalalignment='center', family='monospace',
+                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            
+            plt.tight_layout()
+            plt.pause(0.01)
+            
+            # Imprimir progreso
+            if epoch % 50 == 0:
+                print(f"Epoca {epoch:4d} | Loss: {loss:.4f} | Acc: {accuracy:5.1f}% | Tiempo: {total_time:.1f}s")
+
+except KeyboardInterrupt:
+    print("\n\n[Entrenamiento detenido por el usuario]")
+    print(f"\nResultados finales:")
+    print(f"  Epocas completadas: {epoch}")
+    print(f"  Mejor accuracy: {max(accuracies):.2f}%")
+    print(f"  Loss final: {losses[-1]:.4f}")
+    print(f"  Tiempo total: {time.time() - start_time:.1f}s")
+    
+    plt.ioff()
+    plt.show()
+
+print("\n" + "="*60)
+```

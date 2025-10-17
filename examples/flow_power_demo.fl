@@ -1,0 +1,232 @@
+```python
+import numpy as np
+import time
+import json
+
+print("="*70)
+print("FLOW POWER DEMO - DEMOSTRACION DE CAPACIDADES")
+print("="*70)
+
+# PARTE 1: Machine Learning
+print("\n[PARTE 1: MACHINE LEARNING]")
+start = time.time()
+
+np.random.seed(42)
+samples = 50000
+features = 30
+
+print(f"Generando {samples:,} muestras...")
+X = np.random.randn(samples, features)
+y = np.random.randint(0, 3, samples)
+
+print("Entrenando modelo...")
+weights = np.random.randn(features, 3) * 0.01
+
+for epoch in range(100):
+    logits = np.dot(X, weights)
+    exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+    probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+    
+    y_onehot = np.zeros((samples, 3))
+    y_onehot[np.arange(samples), y] = 1
+    grad = (probs - y_onehot) / samples
+    weights -= 0.1 * np.dot(X.T, grad)
+
+predictions = np.argmax(np.dot(X, weights), axis=1)
+accuracy = np.mean(predictions == y)
+ml_time = time.time() - start
+
+print(f"Accuracy: {accuracy*100:.2f}%")
+print(f"Tiempo: {ml_time:.2f}s")
+print(f"Velocidad: {samples/ml_time:,.0f} muestras/s")
+
+flow_set("ml_samples", str(samples))
+flow_set("ml_accuracy", str(accuracy))
+flow_set("ml_time", str(ml_time))
+
+# PARTE 2: Procesamiento de datos
+print("\n[PARTE 2: PROCESAMIENTO DE DATOS]")
+start = time.time()
+
+data_points = 100000
+print(f"Procesando {data_points:,} puntos de datos...")
+
+data = np.random.randn(data_points, 10)
+mean = np.mean(data, axis=0)
+std = np.std(data, axis=0)
+normalized = (data - mean) / std
+
+correlations = np.corrcoef(normalized.T)
+eigenvalues, eigenvectors = np.linalg.eig(correlations)
+
+data_time = time.time() - start
+
+print(f"Media calculada: {mean[:3]}")
+print(f"Eigenvalues: {eigenvalues[:3]}")
+print(f"Tiempo: {data_time:.2f}s")
+print(f"Velocidad: {data_points/data_time:,.0f} puntos/s")
+
+flow_set("data_points", str(data_points))
+flow_set("data_time", str(data_time))
+
+# PARTE 3: Simulacion
+print("\n[PARTE 3: SIMULACION]")
+start = time.time()
+
+particles = 5000
+steps = 500
+print(f"Simulando {particles:,} particulas por {steps} pasos...")
+
+positions = np.random.randn(particles, 3) * 10
+velocities = np.random.randn(particles, 3)
+
+for step in range(steps):
+    positions += velocities * 0.01
+    velocities *= 0.99
+    
+    out_of_bounds = np.abs(positions) > 50
+    velocities[out_of_bounds] *= -0.8
+
+final_energy = np.sum(velocities ** 2) / 2
+sim_time = time.time() - start
+
+print(f"Energia final: {final_energy:.2f}")
+print(f"Tiempo: {sim_time:.2f}s")
+print(f"Velocidad: {(particles*steps)/sim_time:,.0f} calculos/s")
+
+flow_set("sim_particles", str(particles))
+flow_set("sim_time", str(sim_time))
+flow_set("sim_energy", str(final_energy))
+```
+
+```javascript
+console.log("\n[PARTE 4: PROCESAMIENTO DE EVENTOS]");
+const start = Date.now();
+
+const events = 30000;
+console.log(`Procesando ${events.toLocaleString()} eventos...`);
+
+const data = [];
+for (let i = 0; i < events; i++) {
+    data.push({
+        id: i,
+        type: ['A', 'B', 'C'][Math.floor(Math.random() * 3)],
+        value: Math.random() * 100
+    });
+}
+
+const byType = {};
+let total = 0;
+
+data.forEach(e => {
+    byType[e.type] = (byType[e.type] || 0) + 1;
+    total += e.value;
+});
+
+const jsTime = (Date.now() - start) / 1000;
+
+console.log(`Distribucion:`, byType);
+console.log(`Total: $${total.toFixed(2)}`);
+console.log(`Tiempo: ${jsTime.toFixed(2)}s`);
+console.log(`Velocidad: ${(events/jsTime).toFixed(0)} eventos/s`);
+
+flowSet("js_events", events.toString());
+flowSet("js_time", jsTime.toString());
+flowSet("js_total", total.toFixed(2));
+```
+
+```cpp
+#include <iostream>
+#include <vector>
+#include <random>
+#include <chrono>
+#include <cmath>
+
+int main() {
+    std::cout << "\n[PARTE 5: CALCULO NUMERICO]" << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    const int size = 1000;
+    const int iterations = 1000;
+    
+    std::cout << "Calculando matriz " << size << "x" << size 
+              << " por " << iterations << " iteraciones..." << std::endl;
+    
+    std::vector<std::vector<double>> matrix(size, std::vector<double>(size));
+    std::mt19937 gen(42);
+    std::uniform_real_distribution<> dist(0.0, 1.0);
+    
+    for (auto& row : matrix) {
+        for (auto& val : row) {
+            val = dist(gen);
+        }
+    }
+    
+    double sum = 0;
+    for (int iter = 0; iter < iterations; iter++) {
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                sum += matrix[i][j] * matrix[j][i];
+            }
+        }
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    double cppTime = duration.count() / 1000.0;
+    
+    std::cout << "Suma total: " << sum << std::endl;
+    std::cout << "Tiempo: " << cppTime << "s" << std::endl;
+    std::cout << "Velocidad: " << (size*size*iterations/cppTime) 
+              << " ops/s" << std::endl;
+    
+    flowSet("cpp_size", std::to_string(size));
+    flowSet("cpp_time", std::to_string(cppTime));
+    flowSet("cpp_sum", std::to_string(sum));
+    
+    return 0;
+}
+```
+
+```python
+print("\n" + "="*70)
+print("RESUMEN FINAL")
+print("="*70)
+
+ml_samples = int(flow_get("ml_samples", "0"))
+ml_acc = float(flow_get("ml_accuracy", "0"))
+ml_time = float(flow_get("ml_time", "0"))
+
+data_points = int(flow_get("data_points", "0"))
+data_time = float(flow_get("data_time", "0"))
+
+sim_particles = int(flow_get("sim_particles", "0"))
+sim_time = float(flow_get("sim_time", "0"))
+
+js_events = int(flow_get("js_events", "0"))
+js_time = float(flow_get("js_time", "0"))
+
+cpp_size = int(flow_get("cpp_size", "0"))
+cpp_time = float(flow_get("cpp_time", "0"))
+
+total_time = ml_time + data_time + sim_time + js_time + cpp_time
+
+print(f"\n[1] Machine Learning:      {ml_samples:>10,} muestras en {ml_time:>6.2f}s")
+print(f"[2] Procesamiento Datos:   {data_points:>10,} puntos en {data_time:>6.2f}s")
+print(f"[3] Simulacion:            {sim_particles:>10,} particulas en {sim_time:>6.2f}s")
+print(f"[4] Eventos JavaScript:    {js_events:>10,} eventos en {js_time:>6.2f}s")
+print(f"[5] Calculo C++:           {cpp_size*cpp_size:>10,} operaciones en {cpp_time:>6.2f}s")
+
+print(f"\nTIEMPO TOTAL: {total_time:.2f}s")
+print(f"OPERACIONES TOTALES: {ml_samples + data_points + sim_particles + js_events + cpp_size*cpp_size:,}")
+
+print("\nCARACTERISTICAS FLOW USADAS:")
+print("  [OK] Python para ML y ciencia de datos")
+print("  [OK] JavaScript para procesamiento de eventos")
+print("  [OK] C++ para calculo numerico intensivo")
+print("  [OK] Memoria compartida entre lenguajes")
+print("  [OK] Procesamiento de 100,000+ elementos")
+print("  [OK] Intercambio de datos via flow_set/flow_get")
+
+print("\n" + "="*70 + "\n")
+```

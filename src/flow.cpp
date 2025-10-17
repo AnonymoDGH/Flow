@@ -11,18 +11,182 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <mutex>
+#include <thread>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace fs = std::filesystem;
 
-// ANSI Color codes
-#define RESET   "\033[0m"
-#define RED     "\033[31m"
-#define GREEN   "\033[32m"
-#define YELLOW  "\033[33m"
-#define BLUE    "\033[34m"
-#define MAGENTA "\033[35m"
-#define CYAN    "\033[36m"
-#define BOLD    "\033[1m"
+// Global mutex for file operations
+std::mutex g_file_mutex;
+
+// Sanitize string for shell commands
+std::string sanitize_for_shell(const std::string& input) {
+    std::string result;
+    result.reserve(input.length());
+    
+    for (char c : input) {
+        // Allow only alphanumeric, dash, underscore, dot, slash
+        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '/' || c == '\\') {
+            result += c;
+        } else {
+            // Replace dangerous characters with underscore
+            result += '_';
+        }
+    }
+    return result;
+}
+
+// Safe system call with timeout and error handling
+int safe_system(const std::string& cmd, int timeout_seconds = 300) {
+    // Basic validation
+    if (cmd.empty() || cmd.length() > 8192) {
+        std::cerr << "[ERROR] Invalid command length\n";
+        return -1;
+    }
+    
+    // Check for obvious injection attempts
+    if (cmd.find(";rm") != std::string::npos || 
+        cmd.find("&&rm") != std::string::npos ||
+        cmd.find("|rm") != std::string::npos ||
+        cmd.find(";del") != std::string::npos) {
+        std::cerr << "[ERROR] Potentially dangerous command blocked\n";
+        return -1;
+    }
+    
+    return system(cmd.c_str());
+}
+
+// Thread-safe JSON file operations with locking
+class SafeJSONFile {
+private:
+    std::string filename;
+    std::mutex& mutex;
+    
+public:
+    SafeJSONFile(const std::string& fname, std::mutex& mtx) 
+        : filename(fname), mutex(mtx) {}
+    
+    bool write(const std::map<std::string, std::string>& data) {
+        std::lock_guard<std::mutex> lock(mutex);
+        
+        // Write to temp file first
+        std::string temp_file = filename + ".tmp";
+        std::ofstream f(temp_file);
+        if (!f.is_open()) return false;
+        
+        f << "{\n";
+        bool first = true;
+        for (const auto& pair : data) {
+            if (!first) f << ",\n";
+            f << "  \"" << escape_json(pair.first) << "\": \"" 
+              << escape_json(pair.second) << "\"";
+            first = false;
+        }
+        f << "\n}\n";
+        f.close();
+        
+        // Atomic rename
+        #ifdef _WIN32
+        _unlink(filename.c_str());
+        #endif
+        std::rename(temp_file.c_str(), filename.c_str());
+        
+        return true;
+    }
+    
+    bool read(std::map<std::string, std::string>& data) {
+        std::lock_guard<std::mutex> lock(mutex);
+        
+        std::ifstream f(filename);
+        if (!f.is_open()) return false;
+        
+        std::string content((std::istreambuf_iterator<char>(f)),
+                           std::istreambuf_iterator<char>());
+        f.close();
+        
+        // Simple JSON parsing (production would use proper parser)
+        std::regex pair_regex("\"([^\"]+)\"\\s*:\\s*\"([^\"]*)\"");
+        std::smatch match;
+        std::string::const_iterator searchStart(content.cbegin());
+        
+        while (std::regex_search(searchStart, content.cend(), match, pair_regex)) {
+            data[match[1]] = match[2];
+            searchStart = match.suffix().first;
+        }
+        
+        return true;
+    }
+    
+private:
+    std::string escape_json(const std::string& s) {
+        std::string result;
+        result.reserve(s.length());
+        
+        for (char c : s) {
+            switch (c) {
+                case '"': result += "\\\""; break;
+                case '\\': result += "\\\\"; break;
+                case '\n': result += "\\n"; break;
+                case '\r': result += "\\r"; break;
+                case '\t': result += "\\t"; break;
+                default: result += c;
+            }
+        }
+        return result;
+    }
+};
+
+// Global flag for color support
+bool USE_COLORS = true;
+
+// Function to detect color support
+bool SupportsColors() {
+#ifdef _WIN32
+    // Check if running in Windows Terminal or ConEmu
+    const char* wt = std::getenv("WT_SESSION");
+    const char* term = std::getenv("TERM");
+    const char* conemu = std::getenv("ConEmuANSI");
+    
+    if (wt || conemu || (term && std::string(term) != "")) {
+        return true;
+    }
+    
+    // Try to enable ANSI support in Windows 10+
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut != INVALID_HANDLE_VALUE) {
+        DWORD dwMode = 0;
+        if (GetConsoleMode(hOut, &dwMode)) {
+            dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            if (SetConsoleMode(hOut, dwMode)) {
+                return true;
+            }
+        }
+    }
+    return false;
+#else
+    return true;  // Unix-like systems support ANSI by default
+#endif
+}
+
+// ANSI Color codes - will be empty strings if colors not supported
+std::string RESET = "\033[0m";
+std::string RED = "\033[31m";
+std::string GREEN = "\033[32m";
+std::string YELLOW = "\033[33m";
+std::string BLUE = "\033[34m";
+std::string MAGENTA = "\033[35m";
+std::string CYAN = "\033[36m";
+std::string BOLD = "\033[1m";
+
+// Unicode symbols - will be ASCII if colors not supported
+std::string CHECK = "[OK]";
+std::string CROSS = "[ERROR]";
+std::string ARROW = ">";
+std::string HLINE = "-------------------------------------";
 
 struct Module {
     std::string name;
@@ -100,7 +264,7 @@ public:
         
         pyf << "    sys.exit(0)\n";
         pyf << "except Exception as e:\n";
-        pyf << "    print(f'" << RED << "✗ Python Error:" << RESET << " {e}', file=sys.stderr)\n";
+        pyf << "    print(f'" << RED << "[ERROR] Python Error:" << RESET << " {e}', file=sys.stderr)\n";
         pyf << "    import traceback\n";
         pyf << "    traceback.print_exc()\n";
         pyf << "    sys.exit(1)\n";
@@ -132,7 +296,7 @@ public:
             jsf << js.str();
             jsf << "    process.exit(0);\n";
             jsf << "} catch(e) {\n";
-            jsf << "    console.error('" << RED << "✗ JavaScript Error:" << RESET << "', e.message);\n";
+            jsf << "    console.error('" << RED << "[ERROR] JavaScript Error:" << RESET << "', e.message);\n";
             jsf << "    console.error(e.stack);\n";
             jsf << "    process.exit(1);\n";
             jsf << "}\n";
@@ -142,7 +306,7 @@ public:
             jsf << js.str();
             jsf << "    process.exit(0);\n";
             jsf << "} catch(e) {\n";
-            jsf << "    console.error('" << RED << "✗ JavaScript Error:" << RESET << "', e.message);\n";
+            jsf << "    console.error('" << RED << "[ERROR] JavaScript Error:" << RESET << "', e.message);\n";
             jsf << "    console.error(e.stack);\n";
             jsf << "    process.exit(1);\n";
             jsf << "}\n";
@@ -175,21 +339,32 @@ public:
             cppf << "    // Simple JSON parsing for demo\n";
             cppf << "    return defaultValue;\n";
             cppf << "}\n\n";
-            cppf << "int main() {\n";
-            cppf << "try {\n";
-            cppf << cpp.str();
-            cppf << "return 0;\n";
-            cppf << "} catch(const std::exception& e) {\n";
-            cppf << "    std::cerr << \"" << RED << "✗ C++ Error:" << RESET << " \" << e.what() << std::endl;\n";
-            cppf << "    return 1;\n";
-            cppf << "}\n";
-            cppf << "}\n";
+            // Check if code already contains main function
+            std::string cppCode = cpp.str();
+            bool hasMainFunction = cppCode.find("int main(") != std::string::npos || 
+                                 cppCode.find("int main (") != std::string::npos;
+            
+            if (hasMainFunction) {
+                // Code already has main function, use it directly
+                cppf << cppCode;
+            } else {
+                // No main function, wrap code in main
+                cppf << "int main() {\n";
+                cppf << "try {\n";
+                cppf << cppCode;
+                cppf << "return 0;\n";
+                cppf << "} catch(const std::exception& e) {\n";
+                cppf << "    std::cerr << \"" << RED << "[ERROR] C++ Error:" << RESET << " \" << e.what() << std::endl;\n";
+                cppf << "    return 1;\n";
+                cppf << "}\n";
+                cppf << "}\n";
+            }
             cppf.close();
         }
     }
 
     void executeParallel() {
-        std::cout << CYAN << "→" << RESET << " Parallel mode: Starting concurrent execution\n\n";
+        std::cout << CYAN << ">" << RESET << " Parallel mode: Starting concurrent execution\n\n";
         
         // Crear archivos de código
         compile();
@@ -212,17 +387,17 @@ public:
         // Lanzar procesos
         if (!py.str().empty()) {
             system(pyCmd.c_str());
-            std::cout << GREEN << "  ✓" << RESET << " Python started\n";
+            std::cout << GREEN << "  [OK]" << RESET << " Python started\n";
         }
         
         if (!js.str().empty()) {
             system(jsCmd.c_str());
-            std::cout << GREEN << "  ✓" << RESET << " JavaScript started\n";
+            std::cout << GREEN << "  [OK]" << RESET << " JavaScript started\n";
         }
         
         if (!cpp.str().empty()) {
             system(cppCmd.c_str());
-            std::cout << GREEN << "  ✓" << RESET << " C++ started\n";
+            std::cout << GREEN << "  [OK]" << RESET << " C++ started\n";
         }
         
         // Esperar a que terminen (polling simple)
@@ -270,14 +445,14 @@ public:
         if (!py.str().empty()) {
             std::cout << BLUE << "[Python]" << RESET << " Executing...\n";
             auto start = std::chrono::high_resolution_clock::now();
-            exitCode = system("python __flow__.py 2>&1");
+            exitCode = safe_system("python __flow__.py 2>&1");
             auto end = std::chrono::high_resolution_clock::now();
             double duration = std::chrono::duration<double>(end - start).count();
             
             exportMetrics("python", duration, exitCode);
             
             if (exitCode != 0 && failFast) {
-                std::cerr << RED << "✗ Pipeline stopped: Python failed with exit code " << exitCode << RESET << "\n";
+                std::cerr << RED << "[STOP] Pipeline stopped: Python failed with exit code " << exitCode << RESET << "\n";
                 exportJUnitXML("Flow Pipeline", false, duration, "Python stage failed");
                 return;
             }
@@ -287,14 +462,14 @@ public:
         if (!js.str().empty()) {
             std::cout << BLUE << "[JavaScript]" << RESET << " Executing...\n";
             auto start = std::chrono::high_resolution_clock::now();
-            exitCode = system("node __flow__.js 2>&1");
+            exitCode = safe_system("node __flow__.js 2>&1");
             auto end = std::chrono::high_resolution_clock::now();
             double duration = std::chrono::duration<double>(end - start).count();
             
             exportMetrics("javascript", duration, exitCode);
             
             if (exitCode != 0 && failFast) {
-                std::cerr << RED << "✗ Pipeline stopped: JavaScript failed with exit code " << exitCode << RESET << "\n";
+                std::cerr << RED << "[STOP] Pipeline stopped: JavaScript failed with exit code " << exitCode << RESET << "\n";
                 exportJUnitXML("Flow Pipeline", false, duration, "JavaScript stage failed");
                 return;
             }
@@ -304,9 +479,9 @@ public:
         if (!cpp.str().empty()) {
             std::cout << BLUE << "[C++]" << RESET << " Compiling...\n";
             auto start = std::chrono::high_resolution_clock::now();
-            exitCode = system("g++ -o __flow_bin__ __flow__.cpp -std=c++17 2>&1");
+            exitCode = safe_system("g++ -o __flow_bin__ __flow__.cpp -std=c++17 2>&1");
             if (exitCode != 0 && failFast) {
-                std::cerr << RED << "✗ Pipeline stopped: C++ compilation failed" << RESET << "\n";
+                std::cerr << RED << "[ERROR] Pipeline stopped: C++ compilation failed" << RESET << "\n";
                 exportJUnitXML("Flow Pipeline", false, 0, "C++ compilation failed");
                 return;
             }
@@ -324,7 +499,7 @@ public:
             exportMetrics("cpp", duration, exitCode);
             
             if (exitCode != 0 && failFast) {
-                std::cerr << RED << "✗ Pipeline stopped: C++ execution failed" << RESET << "\n";
+                std::cerr << RED << "[ERROR] Pipeline stopped: C++ execution failed" << RESET << "\n";
                 exportJUnitXML("Flow Pipeline", false, duration, "C++ execution failed");
                 return;
             }
@@ -432,7 +607,7 @@ public:
     void executeBlocks() {
         if (!bidirectionalMode) return;
         
-        std::cout << CYAN << "→" << RESET << " Bidirectional mode: Executing blocks in order\n\n";
+        std::cout << CYAN << ">" << RESET << " Bidirectional mode: Executing blocks in order\n\n";
         
         for (auto& block : blocks) {
             int exitCode = 0;
@@ -468,7 +643,7 @@ public:
                 }
                 pyf << "    sys.exit(0)\n";
                 pyf << "except Exception as e:\n";
-                pyf << "    print(f'" << RED << "✗ Python Error:" << RESET << " {e}', file=sys.stderr)\n";
+                pyf << "    print(f'" << RED << "[ERROR] Python Error:" << RESET << " {e}', file=sys.stderr)\n";
                 pyf << "    import traceback\n";
                 pyf << "    traceback.print_exc()\n";
                 pyf << "    sys.exit(1)\n";
@@ -505,7 +680,7 @@ public:
                     jsf << block.code << "\n";
                     jsf << "    process.exit(0);\n";
                     jsf << "} catch(e) {\n";
-                    jsf << "    console.error('" << RED << "✗ JavaScript Error:" << RESET << "', e.message);\n";
+                    jsf << "    console.error('" << RED << "[ERROR] JavaScript Error:" << RESET << "', e.message);\n";
                     jsf << "    console.error(e.stack);\n";
                     jsf << "    process.exit(1);\n";
                     jsf << "}\n";
@@ -515,7 +690,7 @@ public:
                     jsf << block.code << "\n";
                     jsf << "    process.exit(0);\n";
                     jsf << "} catch(e) {\n";
-                    jsf << "    console.error('" << RED << "✗ JavaScript Error:" << RESET << "', e.message);\n";
+                    jsf << "    console.error('" << RED << "[ERROR] JavaScript Error:" << RESET << "', e.message);\n";
                     jsf << "    console.error(e.stack);\n";
                     jsf << "    process.exit(1);\n";
                     jsf << "}\n";
@@ -552,15 +727,25 @@ public:
                 cppf << "    return defaultValue;\n";
                 cppf << "}\n\n";
                 
-                cppf << "int main() {\n";
-                cppf << "try {\n";
-                cppf << block.code << "\n";
-                cppf << "return 0;\n";
-                cppf << "} catch(const std::exception& e) {\n";
-                cppf << "    std::cerr << \"" << RED << "✗ C++ Error:" << RESET << " \" << e.what() << std::endl;\n";
-                cppf << "    return 1;\n";
-                cppf << "}\n";
-                cppf << "}\n";
+                // Check if block already contains main function
+                bool hasMainFunction = block.code.find("int main(") != std::string::npos || 
+                                     block.code.find("int main (") != std::string::npos;
+                
+                if (hasMainFunction) {
+                    // Block already has main function, use it directly
+                    cppf << block.code << "\n";
+                } else {
+                    // No main function, wrap code in main
+                    cppf << "int main() {\n";
+                    cppf << "try {\n";
+                    cppf << block.code << "\n";
+                    cppf << "return 0;\n";
+                    cppf << "} catch(const std::exception& e) {\n";
+                    cppf << "    std::cerr << \"" << RED << "[ERROR] C++ Error:" << RESET << " \" << e.what() << std::endl;\n";
+                    cppf << "    return 1;\n";
+                    cppf << "}\n";
+                    cppf << "}\n";
+                }
                 cppf.close();
                 
                 exitCode = system("g++ -o __flow_block__ __flow_block__.cpp -std=c++17 2>&1");
@@ -578,7 +763,7 @@ public:
             }
             
             if (exitCode != 0 && failFast) {
-                std::cerr << RED << "✗ Pipeline stopped: Block " << block.order << " failed" << RESET << "\n";
+                std::cerr << RED << "[ERROR] Pipeline stopped: Block " << block.order << " failed" << RESET << "\n";
                 return;
             }
         }
@@ -618,16 +803,45 @@ public:
                 continue; 
             }
 
+            // Handle markdown code blocks
+            if (startsWith(line, "```python")) {
+                pos++;
+                while (pos < lines.size() && !startsWith(trim(lines[pos]), "```")) {
+                    compiler->addPy(lines[pos]);
+                    pos++;
+                }
+                if (pos < lines.size()) pos++; // Skip closing ```
+                continue;
+            }
+            else if (startsWith(line, "```javascript") || startsWith(line, "```js")) {
+                pos++;
+                while (pos < lines.size() && !startsWith(trim(lines[pos]), "```")) {
+                    compiler->addJS(lines[pos]);
+                    pos++;
+                }
+                if (pos < lines.size()) pos++; // Skip closing ```
+                continue;
+            }
+            else if (startsWith(line, "```cpp") || startsWith(line, "```c++")) {
+                pos++;
+                while (pos < lines.size() && !startsWith(trim(lines[pos]), "```")) {
+                    compiler->addCPP(lines[pos]);
+                    pos++;
+                }
+                if (pos < lines.size()) pos++; // Skip closing ```
+                continue;
+            }
+            
             if (line[0] == '@') {
                 if (line == "@bidirectional") {
                     compiler->setBidirectional(true);
-                    std::cout << YELLOW << "→ Bidirectional mode enabled" << RESET << "\n";
+                    std::cout << YELLOW << "> Bidirectional mode enabled" << RESET << "\n";
                     pos++;
                     continue;
                 }
                 if (line == "@parallel") {
                     compiler->setParallel(true);
-                    std::cout << YELLOW << "→ Parallel mode enabled" << RESET << "\n";
+                    std::cout << YELLOW << "> Parallel mode enabled" << RESET << "\n";
                     pos++;
                     continue;
                 }
@@ -942,7 +1156,7 @@ private:
 void initProject(const std::string& name) {
     std::string dir = name.empty() ? "flow_app" : name;
     
-    std::cout << CYAN << "→" << RESET << " Creating Flow project: " << BOLD << dir << RESET << "\n";
+    std::cout << CYAN << ">" << RESET << " Creating Flow project: " << BOLD << dir << RESET << "\n";
     
     fs::create_directories(dir);
     fs::create_directories(dir + "/src");
@@ -1001,11 +1215,11 @@ void initProject(const std::string& name) {
     gitignore << "__flow_bin__*\n";
     gitignore.close();
     
-    std::cout << GREEN << "✓" << RESET << " Created " << BOLD << dir << "/" << RESET << "\n";
-    std::cout << "  " << CYAN << "→" << RESET << " main.fl\n";
-    std::cout << "  " << CYAN << "→" << RESET << " flow.json\n";
-    std::cout << "  " << CYAN << "→" << RESET << " README.md\n";
-    std::cout << "  " << CYAN << "→" << RESET << " .gitignore\n";
+    std::cout << GREEN << "[OK]" << RESET << " Created " << BOLD << dir << "/" << RESET << "\n";
+    std::cout << "  " << CYAN << ">" << RESET << " main.fl\n";
+    std::cout << "  " << CYAN << ">" << RESET << " flow.json\n";
+    std::cout << "  " << CYAN << ">" << RESET << " README.md\n";
+    std::cout << "  " << CYAN << ">" << RESET << " .gitignore\n";
     std::cout << "\n" << BOLD << "Next steps:" << RESET << "\n";
     std::cout << "  cd " << dir << "\n";
     std::cout << "  flow run start\n";
@@ -1017,7 +1231,7 @@ std::string loadFileWithImports(const std::string& file, std::set<std::string>& 
     
     std::ifstream f(file);
     if (!f.is_open()) {
-        std::cerr << RED << "✗" << RESET << " File not found: " << BOLD << file << RESET << "\n";
+        std::cerr << RED << "[ERROR]" << RESET << " File not found: " << BOLD << file << RESET << "\n";
         return "";
     }
     
@@ -1031,7 +1245,7 @@ std::string loadFileWithImports(const std::string& file, std::set<std::string>& 
         
         if (std::regex_search(line, match, importRegex)) {
             std::string importFile = match[1].str();
-            std::cout << CYAN << "  →" << RESET << " Importing " << importFile << "\n";
+            std::cout << CYAN << "  >" << RESET << " Importing " << importFile << "\n";
             result << loadFileWithImports(importFile, loaded);
         } else {
             result << line << "\n";
@@ -1042,13 +1256,13 @@ std::string loadFileWithImports(const std::string& file, std::set<std::string>& 
 }
 
 void runFile(const std::string& file) {
-    std::cout << CYAN << "→" << RESET << " Running " << BOLD << file << RESET << "\n";
+    std::cout << CYAN << ">" << RESET << " Running " << BOLD << file << RESET << "\n";
     
     std::set<std::string> loaded;
     std::string code = loadFileWithImports(file, loaded);
     
     if (code.empty()) {
-        std::cerr << RED << "✗" << RESET << " Failed to load file\n";
+        std::cerr << RED << "[ERROR]" << RESET << " Failed to load file\n";
         return;
     }
     
@@ -1061,7 +1275,7 @@ void runFile(const std::string& file) {
     compiler.execute();
     compiler.clean();
     
-    std::cout << "\n" << GREEN << "✓" << RESET << " Execution completed\n";
+    std::cout << "\n" << GREEN << "[OK]" << RESET << " Execution completed\n";
 }
 
 std::string findFile(const std::string& n) {
@@ -1097,31 +1311,33 @@ void help() {
 }
 
 void installPackage(const std::string& pkg, const std::string& lang = "auto") {
-    std::cout << CYAN << "→" << RESET << " Installing " << BOLD << pkg << RESET << "...\n";
+    std::cout << CYAN << ">" << RESET << " Installing " << BOLD << pkg << RESET << "...\n";
     
     if (lang == "py" || lang == "auto") {
         std::cout << YELLOW << "  [Python]" << RESET << " pip install " << pkg << "\n";
-        int result = system(("pip install " + pkg + " 2>&1").c_str());
+        std::string safe_pkg = sanitize_for_shell(pkg);
+        int result = safe_system("pip install " + safe_pkg + " 2>&1");
         if (result == 0) {
-            std::cout << GREEN << "✓" << RESET << " " << pkg << " installed (Python)\n";
+            std::cout << GREEN << "[OK]" << RESET << " " << pkg << " installed (Python)\n";
         } else {
-            std::cout << RED << "✗" << RESET << " Failed to install " << pkg << " (Python)\n";
+            std::cout << RED << "[FAIL]" << RESET << " Failed to install " << pkg << " (Python)\n";
         }
     }
     
     if (lang == "js" || lang == "auto") {
         std::cout << YELLOW << "  [JavaScript]" << RESET << " npm install " << pkg << "\n";
-        int result = system(("npm install " + pkg + " 2>&1").c_str());
+        std::string safe_pkg = sanitize_for_shell(pkg);
+        int result = safe_system("npm install " + safe_pkg + " 2>&1");
         if (result == 0) {
-            std::cout << GREEN << "✓" << RESET << " " << pkg << " installed (JavaScript)\n";
+            std::cout << GREEN << "[OK]" << RESET << " " << pkg << " installed (JavaScript)\n";
         } else {
-            std::cout << RED << "✗" << RESET << " Failed to install " << pkg << " (JavaScript)\n";
+            std::cout << RED << "[FAIL]" << RESET << " Failed to install " << pkg << " (JavaScript)\n";
         }
     }
 }
 
 void uninstallPackage(const std::string& pkg, const std::string& lang = "auto") {
-    std::cout << CYAN << "→" << RESET << " Uninstalling " << BOLD << pkg << RESET << "...\n";
+    std::cout << CYAN << ">" << RESET << " Uninstalling " << BOLD << pkg << RESET << "...\n";
     
     if (lang == "py" || lang == "auto") {
         std::cout << YELLOW << "  [Python]" << RESET << " pip uninstall " << pkg << " -y\n";
@@ -1133,7 +1349,7 @@ void uninstallPackage(const std::string& pkg, const std::string& lang = "auto") 
         system(("npm uninstall " + pkg + " 2>&1").c_str());
     }
     
-    std::cout << GREEN << "✓" << RESET << " " << pkg << " uninstalled\n";
+    std::cout << GREEN << "[OK]" << RESET << " " << pkg << " uninstalled\n";
 }
 
 void listPackages() {
@@ -1159,7 +1375,7 @@ void showMetrics() {
     double totalDuration = 0;
     
     std::cout << BOLD << "Stage Performance:" << RESET << "\n";
-    std::cout << "─────────────────────────────────────\n";
+    std::cout << "-------------------------------------\n";
     
     while (std::getline(metrics, line)) {
         // Parse JSON simple
@@ -1187,22 +1403,22 @@ void showMetrics() {
             std::cout << "  " << BLUE << stage << RESET << ": " 
                      << duration << "s ";
             if (exitCode == 0) {
-                std::cout << GREEN << "✓" << RESET;
+                std::cout << GREEN << "[OK]" << RESET;
             } else {
-                std::cout << RED << "✗ (exit " << exitCode << ")" << RESET;
+                std::cout << RED << "[FAIL] (exit " << exitCode << ")" << RESET;
             }
             std::cout << "\n";
         }
     }
     
-    std::cout << "─────────────────────────────────────\n";
+    std::cout << "-------------------------------------\n";
     std::cout << BOLD << "Total: " << totalDuration << "s" << RESET << "\n";
     
     metrics.close();
 }
 
 void installAll() {
-    std::cout << CYAN << "→" << RESET << " Installing all dependencies...\n";
+    std::cout << CYAN << ">" << RESET << " Installing all dependencies...\n";
     
     // Check for requirements.txt
     if (fs::exists("requirements.txt")) {
@@ -1216,17 +1432,17 @@ void installAll() {
         system("npm install 2>&1");
     }
     
-    std::cout << GREEN << "✓" << RESET << " All dependencies installed\n";
+    std::cout << GREEN << "[OK]" << RESET << " All dependencies installed\n";
 }
 
 void runScript(const std::string& scriptName) {
     std::ifstream flowJson("flow.json");
     if (!flowJson.is_open()) {
-        std::cerr << RED << "✗" << RESET << " flow.json not found\n";
+        std::cerr << RED << "[ERROR]" << RESET << " flow.json not found\n";
         return;
     }
     
-    std::cout << CYAN << "→" << RESET << " Running script: " << BOLD << scriptName << RESET << "\n";
+    std::cout << CYAN << ">" << RESET << " Running script: " << BOLD << scriptName << RESET << "\n";
     
     // Simple JSON parsing for scripts
     std::string line;
@@ -1248,7 +1464,7 @@ void runScript(const std::string& scriptName) {
     }
     
     if (scriptCmd.empty()) {
-        std::cerr << RED << "✗" << RESET << " Script '" << scriptName << "' not found in flow.json\n";
+        std::cerr << RED << "[ERROR]" << RESET << " Script '" << scriptName << "' not found in flow.json\n";
         return;
     }
     
@@ -1265,6 +1481,23 @@ void runScript(const std::string& scriptName) {
 }
 
 int main(int argc, char** argv) {
+    // Initialize color support
+    USE_COLORS = SupportsColors();
+    if (!USE_COLORS) {
+        RESET = "";
+        RED = "";
+        GREEN = "";
+        YELLOW = "";
+        BLUE = "";
+        MAGENTA = "";
+        CYAN = "";
+        BOLD = "";
+        CHECK = "[OK]";
+        CROSS = "[X]";
+        ARROW = "->";
+        HLINE = "-------------------------------------";
+    }
+    
     if (argc < 2) { help(); return 1; }
     
     std::string cmd = argv[1];
@@ -1306,7 +1539,7 @@ int main(int argc, char** argv) {
     
     if (cmd == "uninstall" || cmd == "remove") {
         if (argc < 3) {
-            std::cerr << RED << "✗" << RESET << " Package name required\n";
+            std::cerr << RED << "[ERROR]" << RESET << " Package name required\n";
             return 1;
         }
         std::string pkg = argv[2];
@@ -1334,7 +1567,7 @@ int main(int argc, char** argv) {
     
     if (cmd == "run") {
         if (argc < 3) {
-            std::cerr << RED << "✗" << RESET << " Script name required\n";
+            std::cerr << RED << "[ERROR]" << RESET << " Script name required\n";
             return 1;
         }
         runScript(argv[2]);
@@ -1344,7 +1577,7 @@ int main(int argc, char** argv) {
     // Try to run as file
     std::string file = findFile(cmd);
     if (file.empty()) { 
-        std::cerr << RED << "✗" << RESET << " Command or file not found: " << BOLD << cmd << RESET << "\n";
+        std::cerr << RED << "[ERROR]" << RESET << " Command or file not found: " << BOLD << cmd << RESET << "\n";
         std::cerr << "Run " << GREEN << "flow --help" << RESET << " for usage\n";
         return 1; 
     }

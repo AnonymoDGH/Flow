@@ -1,0 +1,328 @@
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+import time
+
+print("="*60)
+print("FLOW ML - GENERADOR PIXEL POR PIXEL")
+print("La IA aprende a dibujar formas pixel a pixel")
+print("="*60)
+
+# Configuración
+IMG_SIZE = 28
+NUM_CLASSES = 3
+BATCH_SIZE = 16
+MAX_EPOCHS = 1000
+
+# Generar formas objetivo (ground truth)
+def generate_target_shape(shape_type):
+    img = np.zeros((IMG_SIZE, IMG_SIZE))
+    
+    if shape_type == 0:  # Cuadrado
+        size = 16
+        x = (IMG_SIZE - size) // 2
+        y = (IMG_SIZE - size) // 2
+        img[y:y+size, x:x+size] = 1
+        
+    elif shape_type == 1:  # Triangulo
+        size = 18
+        x = (IMG_SIZE - size) // 2
+        y = (IMG_SIZE - size) // 2
+        for i in range(size):
+            start = x + i // 2
+            end = x + size - i // 2
+            img[y + i, start:end] = 1
+            
+    elif shape_type == 2:  # Circulo
+        radius = 10
+        cx = IMG_SIZE // 2
+        cy = IMG_SIZE // 2
+        y, x = np.ogrid[:IMG_SIZE, :IMG_SIZE]
+        mask = (x - cx)**2 + (y - cy)**2 <= radius**2
+        img[mask] = 1
+    
+    return img.flatten()
+
+# Red neuronal generativa - genera pixel por pixel
+class PixelGenerator:
+    def __init__(self):
+        # Entrada: tipo de forma (one-hot) + posición del pixel
+        input_size = NUM_CLASSES + 2  # [shape_type_onehot, x, y]
+        
+        self.W1 = np.random.randn(input_size, 128) * 0.1
+        self.b1 = np.zeros((1, 128))
+        self.W2 = np.random.randn(128, 64) * 0.1
+        self.b2 = np.zeros((1, 64))
+        self.W3 = np.random.randn(64, 1) * 0.1  # Salida: probabilidad del pixel
+        self.b3 = np.zeros((1, 1))
+        
+    def relu(self, x):
+        return np.maximum(0, x)
+    
+    def sigmoid(self, x):
+        return 1 / (1 + np.exp(-np.clip(x, -500, 500)))
+    
+    def forward(self, X):
+        self.z1 = np.dot(X, self.W1) + self.b1
+        self.a1 = self.relu(self.z1)
+        self.z2 = np.dot(self.a1, self.W2) + self.b2
+        self.a2 = self.relu(self.z2)
+        self.z3 = np.dot(self.a2, self.W3) + self.b3
+        self.a3 = self.sigmoid(self.z3)
+        return self.a3
+    
+    def backward(self, X, y, learning_rate=0.01):
+        m = X.shape[0]
+        
+        # Backprop
+        dz3 = self.a3 - y
+        dW3 = np.dot(self.a2.T, dz3) / m
+        db3 = np.sum(dz3, axis=0, keepdims=True) / m
+        
+        da2 = np.dot(dz3, self.W3.T)
+        dz2 = da2 * (self.a2 > 0)
+        dW2 = np.dot(self.a1.T, dz2) / m
+        db2 = np.sum(dz2, axis=0, keepdims=True) / m
+        
+        da1 = np.dot(dz2, self.W2.T)
+        dz1 = da1 * (self.a1 > 0)
+        dW1 = np.dot(X.T, dz1) / m
+        db1 = np.sum(dz1, axis=0, keepdims=True) / m
+        
+        # Update
+        self.W3 -= learning_rate * dW3
+        self.b3 -= learning_rate * db3
+        self.W2 -= learning_rate * dW2
+        self.b2 -= learning_rate * db2
+        self.W1 -= learning_rate * dW1
+        self.b1 -= learning_rate * db1
+    
+    def generate_image(self, shape_type):
+        """Genera una imagen pixel por pixel"""
+        img = np.zeros((IMG_SIZE, IMG_SIZE))
+        
+        # One-hot encode del tipo de forma
+        shape_onehot = np.zeros(NUM_CLASSES)
+        shape_onehot[shape_type] = 1
+        
+        # Generar cada pixel
+        for y in range(IMG_SIZE):
+            for x in range(IMG_SIZE):
+                # Normalizar coordenadas a [0, 1]
+                x_norm = x / IMG_SIZE
+                y_norm = y / IMG_SIZE
+                
+                # Input: [shape_type_onehot, x, y]
+                input_vec = np.concatenate([shape_onehot, [x_norm, y_norm]]).reshape(1, -1)
+                
+                # Predecir probabilidad del pixel
+                pixel_prob = self.forward(input_vec)[0, 0]
+                img[y, x] = pixel_prob
+        
+        return img
+
+# Generar formas objetivo
+print("\n[Generando formas objetivo...]")
+target_square = generate_target_shape(0).reshape(IMG_SIZE, IMG_SIZE)
+target_triangle = generate_target_shape(1).reshape(IMG_SIZE, IMG_SIZE)
+target_circle = generate_target_shape(2).reshape(IMG_SIZE, IMG_SIZE)
+
+# Inicializar generador
+generator = PixelGenerator()
+
+# Generar primeras imágenes (época 1)
+print("[Generando imagenes iniciales (epoca 1)...]")
+first_square = generator.generate_image(0)
+first_triangle = generator.generate_image(1)
+first_circle = generator.generate_image(2)
+
+losses = []
+start_time = time.time()
+
+print(f"\n[Entrenando generador pixel por pixel por {MAX_EPOCHS} epocas...]")
+print("Progreso: ", end="", flush=True)
+
+# Entrenamiento
+for epoch in range(1, MAX_EPOCHS + 1):
+    epoch_loss = 0
+    
+    for _ in range(BATCH_SIZE):
+        # Seleccionar forma aleatoria
+        shape_type = np.random.randint(0, NUM_CLASSES)
+        target = generate_target_shape(shape_type)
+        
+        # One-hot encode
+        shape_onehot = np.zeros(NUM_CLASSES)
+        shape_onehot[shape_type] = 1
+        
+        # Entrenar en cada pixel
+        X_batch = []
+        y_batch = []
+        
+        for y in range(IMG_SIZE):
+            for x in range(IMG_SIZE):
+                x_norm = x / IMG_SIZE
+                y_norm = y / IMG_SIZE
+                input_vec = np.concatenate([shape_onehot, [x_norm, y_norm]])
+                X_batch.append(input_vec)
+                y_batch.append([target[y * IMG_SIZE + x]])
+        
+        X_batch = np.array(X_batch)
+        y_batch = np.array(y_batch)
+        
+        # Forward y backward
+        predictions = generator.forward(X_batch)
+        generator.backward(X_batch, y_batch, learning_rate=0.1)
+        
+        # Calcular loss
+        loss = np.mean((predictions - y_batch) ** 2)
+        epoch_loss += loss
+    
+    avg_loss = epoch_loss / BATCH_SIZE
+    losses.append(avg_loss)
+    
+    # Mostrar progreso
+    if epoch % 100 == 0:
+        print(f"{epoch}...", end="", flush=True)
+
+print(" Completado!")
+
+# Generar últimas imágenes (época 1000)
+print("\n[Generando imagenes finales (epoca 1000)...]")
+last_square = generator.generate_image(0)
+last_triangle = generator.generate_image(1)
+last_circle = generator.generate_image(2)
+
+# Estadísticas
+total_time = time.time() - start_time
+final_loss = losses[-1]
+initial_loss = losses[0]
+improvement = ((initial_loss - final_loss) / initial_loss * 100)
+
+# Crear visualización
+print("\n[Creando visualizacion...]")
+fig = plt.figure(figsize=(18, 12))
+fig.suptitle('Flow ML - Generador Pixel por Pixel (Epoca 1 vs Epoca 1000)', 
+             fontsize=18, fontweight='bold')
+
+# Fila 1: Formas objetivo
+ax1 = plt.subplot(4, 3, 1)
+ax1.imshow(target_square, cmap='gray')
+ax1.set_title('OBJETIVO: Cuadrado', fontsize=11, fontweight='bold')
+ax1.axis('off')
+
+ax2 = plt.subplot(4, 3, 2)
+ax2.imshow(target_triangle, cmap='gray')
+ax2.set_title('OBJETIVO: Triangulo', fontsize=11, fontweight='bold')
+ax2.axis('off')
+
+ax3 = plt.subplot(4, 3, 3)
+ax3.imshow(target_circle, cmap='gray')
+ax3.set_title('OBJETIVO: Circulo', fontsize=11, fontweight='bold')
+ax3.axis('off')
+
+# Fila 2: Primera generación (época 1)
+ax4 = plt.subplot(4, 3, 4)
+ax4.imshow(first_square, cmap='viridis')
+ax4.set_title('GENERADO: Cuadrado (Epoca 1)', fontsize=11, fontweight='bold')
+ax4.axis('off')
+
+ax5 = plt.subplot(4, 3, 5)
+ax5.imshow(first_triangle, cmap='viridis')
+ax5.set_title('GENERADO: Triangulo (Epoca 1)', fontsize=11, fontweight='bold')
+ax5.axis('off')
+
+ax6 = plt.subplot(4, 3, 6)
+ax6.imshow(first_circle, cmap='viridis')
+ax6.set_title('GENERADO: Circulo (Epoca 1)', fontsize=11, fontweight='bold')
+ax6.axis('off')
+
+# Fila 3: Última generación (época 1000)
+ax7 = plt.subplot(4, 3, 7)
+ax7.imshow(last_square, cmap='plasma')
+ax7.set_title('GENERADO: Cuadrado (Epoca 1000)', fontsize=11, fontweight='bold')
+ax7.axis('off')
+
+ax8 = plt.subplot(4, 3, 8)
+ax8.imshow(last_triangle, cmap='plasma')
+ax8.set_title('GENERADO: Triangulo (Epoca 1000)', fontsize=11, fontweight='bold')
+ax8.axis('off')
+
+ax9 = plt.subplot(4, 3, 9)
+ax9.imshow(last_circle, cmap='plasma')
+ax9.set_title('GENERADO: Circulo (Epoca 1000)', fontsize=11, fontweight='bold')
+ax9.axis('off')
+
+# Fila 4: Métricas
+ax10 = plt.subplot(4, 3, 10)
+ax10.plot(losses, 'r-', linewidth=2, alpha=0.7)
+ax10.set_title('Loss (MSE) durante entrenamiento', fontsize=11, fontweight='bold')
+ax10.set_xlabel('Epoca')
+ax10.set_ylabel('Loss')
+ax10.grid(True, alpha=0.3)
+
+ax11 = plt.subplot(4, 3, 11)
+# Calcular similitud con objetivo
+similarities = []
+for i in range(0, len(losses), 10):
+    epoch_num = i + 1
+    # Simular mejora de similitud
+    sim = 100 * (1 - losses[i] / initial_loss)
+    similarities.append(sim)
+
+ax11.plot(range(0, len(losses), 10), similarities, 'g-', linewidth=2, alpha=0.7)
+ax11.set_title('Similitud con objetivo', fontsize=11, fontweight='bold')
+ax11.set_xlabel('Epoca')
+ax11.set_ylabel('Similitud (%)')
+ax11.set_ylim([0, 100])
+ax11.grid(True, alpha=0.3)
+
+ax12 = plt.subplot(4, 3, 12)
+ax12.axis('off')
+stats_text = f"""
+GENERADOR PIXEL POR PIXEL
+
+Metodo: Red neuronal genera cada
+        pixel individualmente
+
+Epocas: {MAX_EPOCHS}
+Tiempo total: {total_time:.2f}s
+Tiempo/epoca: {total_time/MAX_EPOCHS*1000:.1f}ms
+
+Loss inicial: {initial_loss:.6f}
+Loss final: {final_loss:.6f}
+Mejora: {improvement:.1f}%
+
+Pixeles por imagen: {IMG_SIZE * IMG_SIZE}
+Total pixeles generados: {MAX_EPOCHS * BATCH_SIZE * IMG_SIZE * IMG_SIZE:,}
+
+Velocidad: {MAX_EPOCHS/total_time:.1f} epocas/s
+"""
+
+ax12.text(0.1, 0.5, stats_text, fontsize=9, 
+        verticalalignment='center', family='monospace',
+        bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.8))
+
+plt.tight_layout()
+
+# Guardar
+output_file = 'flow_ml_pixel_by_pixel.png'
+plt.savefig(output_file, dpi=150, bbox_inches='tight')
+print(f"\n[Imagen guardada como: {output_file}]")
+
+plt.show()
+
+# Resumen
+print("\n" + "="*60)
+print("RESUMEN FINAL - GENERADOR PIXEL POR PIXEL")
+print("="*60)
+print(f"\nLa IA aprendio a dibujar formas pixel por pixel!")
+print(f"\nTiempo: {total_time:.2f}s")
+print(f"Epocas: {MAX_EPOCHS}")
+print(f"Velocidad: {MAX_EPOCHS/total_time:.1f} epocas/segundo")
+print(f"\nLoss: {initial_loss:.6f} -> {final_loss:.6f}")
+print(f"Mejora: {improvement:.1f}%")
+print(f"\nTotal de pixeles generados: {MAX_EPOCHS * BATCH_SIZE * IMG_SIZE * IMG_SIZE:,}")
+print(f"Pixeles por segundo: {(MAX_EPOCHS * BATCH_SIZE * IMG_SIZE * IMG_SIZE)/total_time:,.0f}")
+print("\n" + "="*60)
+```

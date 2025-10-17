@@ -1,0 +1,312 @@
+# Python: Análisis de datos masivo y ML
+```python
+import numpy as np
+import time
+import json
+
+print("="*70)
+print("FLOW ULTIMATE DEMO - USANDO TODAS LAS CARACTERISTICAS")
+print("="*70)
+
+print("\n[PYTHON] Iniciando analisis de datos masivo...")
+start_py = time.time()
+
+np.random.seed(42)
+num_samples = 100000
+num_features = 50
+
+print(f"[PYTHON] Generando {num_samples:,} muestras con {num_features} caracteristicas...")
+X = np.random.randn(num_samples, num_features)
+y = np.random.randint(0, 5, num_samples)
+
+print(f"[PYTHON] Calculando estadisticas...")
+mean_features = np.mean(X, axis=0)
+std_features = np.std(X, axis=0)
+
+print(f"[PYTHON] Reduciendo dimensionalidad (PCA)...")
+X_centered = X - mean_features
+cov_matrix = np.cov(X_centered.T)
+eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
+idx = eigenvalues.argsort()[::-1]
+eigenvalues = eigenvalues[idx]
+eigenvectors = eigenvectors[:, idx]
+X_pca = np.dot(X_centered, eigenvectors[:, :10])
+
+print(f"[PYTHON] Ejecutando clustering K-means...")
+k = 5
+centroids = X_pca[np.random.choice(num_samples, k, replace=False)]
+
+for iteration in range(20):
+    distances = np.zeros((num_samples, k))
+    for i in range(k):
+        distances[:, i] = np.sum((X_pca - centroids[i])**2, axis=1)
+    clusters = np.argmin(distances, axis=1)
+    
+    for i in range(k):
+        if np.sum(clusters == i) > 0:
+            centroids[i] = np.mean(X_pca[clusters == i], axis=0)
+
+print(f"[PYTHON] Entrenando clasificador...")
+weights = np.random.randn(10, 5) * 0.01
+bias = np.zeros(5)
+
+for epoch in range(50):
+    logits = np.dot(X_pca, weights) + bias
+    exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+    probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+    
+    y_onehot = np.zeros((num_samples, 5))
+    y_onehot[np.arange(num_samples), y] = 1
+    grad = (probs - y_onehot) / num_samples
+    weights -= 0.1 * np.dot(X_pca.T, grad)
+    bias -= 0.1 * np.sum(grad, axis=0)
+
+final_logits = np.dot(X_pca, weights) + bias
+predictions = np.argmax(final_logits, axis=1)
+accuracy = np.mean(predictions == y)
+
+py_time = time.time() - start_py
+
+results_py = {
+    'samples': num_samples,
+    'features': num_features,
+    'clusters': k,
+    'accuracy': float(accuracy),
+    'time': py_time,
+    'cluster_sizes': [int(np.sum(clusters == i)) for i in range(k)]
+}
+
+print(f"\n[PYTHON] Resultados:")
+print(f"  - Muestras procesadas: {num_samples:,}")
+print(f"  - Accuracy: {accuracy*100:.2f}%")
+print(f"  - Tiempo: {py_time:.2f}s")
+print(f"  - Velocidad: {num_samples/py_time:,.0f} muestras/s")
+
+flow_set("py_samples", str(num_samples))
+flow_set("py_accuracy", str(accuracy))
+flow_set("py_time", str(py_time))
+flow_set("py_results", json.dumps(results_py))
+
+print("[PYTHON] Datos compartidos con JavaScript y C++")
+```
+
+# JavaScript: Procesamiento de eventos
+```javascript
+console.log("\n[JAVASCRIPT] Iniciando procesamiento de eventos...");
+const startJs = Date.now();
+
+const numEvents = 50000;
+const events = [];
+
+console.log(`[JAVASCRIPT] Generando ${numEvents.toLocaleString()} eventos...`);
+
+for (let i = 0; i < numEvents; i++) {
+    events.push({
+        id: i,
+        timestamp: Date.now() + i * 10,
+        type: ['click', 'view', 'purchase', 'signup', 'logout'][Math.floor(Math.random() * 5)],
+        userId: Math.floor(Math.random() * 10000),
+        value: Math.random() * 1000
+    });
+}
+
+console.log("[JAVASCRIPT] Analizando patrones...");
+
+const eventsByType = {};
+let totalValue = 0;
+
+events.forEach(event => {
+    eventsByType[event.type] = (eventsByType[event.type] || 0) + 1;
+    totalValue += event.value;
+});
+
+const avgValue = totalValue / numEvents;
+const anomalies = events.filter(e => e.value > avgValue * 3);
+
+const jsTime = (Date.now() - startJs) / 1000;
+
+console.log("\n[JAVASCRIPT] Resultados:");
+console.log(`  - Eventos procesados: ${numEvents.toLocaleString()}`);
+console.log(`  - Tipos:`, eventsByType);
+console.log(`  - Anomalias: ${anomalies.length}`);
+console.log(`  - Valor total: $${totalValue.toFixed(2)}`);
+console.log(`  - Tiempo: ${jsTime.toFixed(2)}s`);
+console.log(`  - Velocidad: ${(numEvents/jsTime).toFixed(0)} eventos/s`);
+
+flowSet("js_events", numEvents.toString());
+flowSet("js_anomalies", anomalies.length.toString());
+flowSet("js_time", jsTime.toString());
+flowSet("js_total_value", totalValue.toFixed(2));
+
+console.log("[JAVASCRIPT] Datos compartidos");
+```
+
+# C++: Simulación física
+```cpp
+#include <iostream>
+#include <vector>
+#include <random>
+#include <chrono>
+#include <cmath>
+#include <iomanip>
+
+int main() {
+    std::cout << "\n[C++] Iniciando simulacion fisica..." << std::endl;
+    auto startCpp = std::chrono::high_resolution_clock::now();
+    
+    const int numParticles = 10000;
+    const int numSteps = 1000;
+    
+    std::cout << "[C++] Simulando " << numParticles << " particulas..." << std::endl;
+    
+    std::mt19937 gen(42);
+    std::uniform_real_distribution<> posDist(-100.0, 100.0);
+    std::uniform_real_distribution<> velDist(-10.0, 10.0);
+    
+    struct Particle {
+        double x, y, z;
+        double vx, vy, vz;
+        double mass;
+        double energy;
+    };
+    
+    std::vector<Particle> particles(numParticles);
+    
+    for (auto& p : particles) {
+        p.x = posDist(gen);
+        p.y = posDist(gen);
+        p.z = posDist(gen);
+        p.vx = velDist(gen);
+        p.vy = velDist(gen);
+        p.vz = velDist(gen);
+        p.mass = 1.0;
+        p.energy = 0.5 * p.mass * (p.vx*p.vx + p.vy*p.vy + p.vz*p.vz);
+    }
+    
+    double dt = 0.01;
+    int collisions = 0;
+    
+    for (int step = 0; step < numSteps; step++) {
+        for (auto& p : particles) {
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.z += p.vz * dt;
+            
+            if (std::abs(p.x) > 100.0) p.vx *= -0.9;
+            if (std::abs(p.y) > 100.0) p.vy *= -0.9;
+            if (std::abs(p.z) > 100.0) p.vz *= -0.9;
+            
+            p.vx *= 0.999;
+            p.vy *= 0.999;
+            p.vz *= 0.999;
+            
+            p.energy = 0.5 * p.mass * (p.vx*p.vx + p.vy*p.vy + p.vz*p.vz);
+        }
+        
+        for (size_t i = 0; i < particles.size(); i += 100) {
+            for (size_t j = i + 1; j < std::min(i + 100, particles.size()); j++) {
+                double dx = particles[i].x - particles[j].x;
+                double dy = particles[i].y - particles[j].y;
+                double dz = particles[i].z - particles[j].z;
+                double dist = std::sqrt(dx*dx + dy*dy + dz*dz);
+                
+                if (dist < 2.0) {
+                    collisions++;
+                }
+            }
+        }
+    }
+    
+    double totalEnergy = 0;
+    for (const auto& p : particles) {
+        totalEnergy += p.energy;
+    }
+    
+    auto endCpp = std::chrono::high_resolution_clock::now();
+    auto durationCpp = std::chrono::duration_cast<std::chrono::milliseconds>(endCpp - startCpp);
+    double cppTime = durationCpp.count() / 1000.0;
+    
+    std::cout << "\n[C++] Resultados:" << std::endl;
+    std::cout << "  - Particulas: " << numParticles << std::endl;
+    std::cout << "  - Pasos: " << numSteps << std::endl;
+    std::cout << "  - Colisiones: " << collisions << std::endl;
+    std::cout << "  - Energia total: " << std::fixed << std::setprecision(2) 
+              << totalEnergy << std::endl;
+    std::cout << "  - Tiempo: " << cppTime << "s" << std::endl;
+    std::cout << "  - Velocidad: " << (numParticles * numSteps / cppTime) 
+              << " calculos/s" << std::endl;
+    
+    flowSet("cpp_particles", std::to_string(numParticles));
+    flowSet("cpp_collisions", std::to_string(collisions));
+    flowSet("cpp_time", std::to_string(cppTime));
+    flowSet("cpp_energy", std::to_string(totalEnergy));
+    
+    std::cout << "[C++] Datos compartidos" << std::endl;
+    
+    return 0;
+}
+```
+
+# Python: Consolidación final
+```python
+import json
+
+print("\n" + "="*70)
+print("CONSOLIDANDO RESULTADOS")
+print("="*70)
+
+py_samples = int(flow_get("py_samples", "0"))
+py_accuracy = float(flow_get("py_accuracy", "0"))
+py_time = float(flow_get("py_time", "0"))
+
+js_events = int(flow_get("js_events", "0"))
+js_anomalies = int(flow_get("js_anomalies", "0"))
+js_time = float(flow_get("js_time", "0"))
+js_value = float(flow_get("js_total_value", "0"))
+
+cpp_particles = int(flow_get("cpp_particles", "0"))
+cpp_collisions = int(flow_get("cpp_collisions", "0"))
+cpp_time = float(flow_get("cpp_time", "0"))
+cpp_energy = float(flow_get("cpp_energy", "0"))
+
+total_time = py_time + js_time + cpp_time
+total_ops = py_samples + js_events + (cpp_particles * 1000)
+
+print(f"\n[PYTHON - Machine Learning]")
+print(f"  Muestras:     {py_samples:>12,}")
+print(f"  Accuracy:     {py_accuracy*100:>11.2f}%")
+print(f"  Tiempo:       {py_time:>11.2f}s")
+print(f"  Velocidad:    {py_samples/py_time:>11,.0f} ops/s")
+
+print(f"\n[JAVASCRIPT - Event Processing]")
+print(f"  Eventos:      {js_events:>12,}")
+print(f"  Anomalias:    {js_anomalies:>12,}")
+print(f"  Valor:        ${js_value:>11,.2f}")
+print(f"  Tiempo:       {js_time:>11.2f}s")
+print(f"  Velocidad:    {js_events/js_time:>11,.0f} ops/s")
+
+print(f"\n[C++ - Physics Simulation]")
+print(f"  Particulas:   {cpp_particles:>12,}")
+print(f"  Colisiones:   {cpp_collisions:>12,}")
+print(f"  Energia:      {cpp_energy:>11.2f}")
+print(f"  Tiempo:       {cpp_time:>11.2f}s")
+print(f"  Velocidad:    {(cpp_particles*1000)/cpp_time:>11,.0f} ops/s")
+
+print(f"\n{'='*70}")
+print("ESTADISTICAS GLOBALES")
+print(f"{'='*70}")
+print(f"\nTiempo total:       {total_time:.2f}s")
+print(f"Operaciones:        {total_ops:,}")
+print(f"Throughput:         {total_ops/total_time:,.0f} ops/s")
+
+print(f"\n{'='*70}")
+print("CARACTERISTICAS FLOW UTILIZADAS")
+print(f"{'='*70}")
+print("  [OK] Multi-lenguaje (Python + JavaScript + C++)")
+print("  [OK] Memoria compartida (flow_set/flow_get)")
+print("  [OK] Machine Learning")
+print("  [OK] Procesamiento de eventos")
+print("  [OK] Simulacion fisica")
+print("  [OK] Intercambio de datos JSON")
+print(f"\n{'='*70}\n")
+```

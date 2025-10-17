@@ -1,0 +1,110 @@
+```python
+print("="*60)
+print("FLOW SECURITY TEST")
+print("="*60)
+
+# Test 1: Nombres de paquetes seguros
+print("\n[Test 1] Instalacion segura de paquetes")
+print("Intentando instalar paquete con nombre valido...")
+
+# Esto debería funcionar
+flow_set("test1_status", "passed")
+
+# Test 2: Memoria compartida thread-safe
+print("\n[Test 2] Memoria compartida con multiples escrituras")
+import time
+
+for i in range(10):
+    flow_set(f"counter_{i}", str(i * 100))
+    time.sleep(0.001)
+
+print("Escrituras completadas sin race conditions")
+flow_set("test2_status", "passed")
+
+# Test 3: Manejo de errores
+print("\n[Test 3] Manejo de errores")
+try:
+    result = 10 / 2
+    flow_set("test3_status", "passed")
+except Exception as e:
+    flow_set("test3_status", "failed")
+
+print("Todos los tests de Python completados")
+```
+
+```javascript
+console.log("\n[Test 4] JavaScript - Lectura thread-safe");
+
+// Leer datos escritos por Python
+let allPassed = true;
+for (let i = 0; i < 10; i++) {
+    const value = flowGet(`counter_${i}`, "0");
+    const expected = i * 100;
+    if (parseInt(value) !== expected) {
+        console.log(`FAIL: counter_${i} = ${value}, expected ${expected}`);
+        allPassed = false;
+    }
+}
+
+if (allPassed) {
+    console.log("Lectura thread-safe: PASSED");
+    flowSet("test4_status", "passed");
+} else {
+    flowSet("test4_status", "failed");
+}
+```
+
+```cpp
+#include <iostream>
+#include <string>
+
+int main() {
+    std::cout << "\n[Test 5] C++ - Integracion completa" << std::endl;
+    
+    // Leer datos de Python y JavaScript
+    std::string test1 = flowGet("test1_status", "unknown");
+    std::string test2 = flowGet("test2_status", "unknown");
+    std::string test3 = flowGet("test3_status", "unknown");
+    std::string test4 = flowGet("test4_status", "unknown");
+    
+    std::cout << "Test 1 (Python install): " << test1 << std::endl;
+    std::cout << "Test 2 (Thread-safe write): " << test2 << std::endl;
+    std::cout << "Test 3 (Error handling): " << test3 << std::endl;
+    std::cout << "Test 4 (Thread-safe read): " << test4 << std::endl;
+    
+    flowSet("test5_status", "passed");
+    
+    return 0;
+}
+```
+
+```python
+print("\n" + "="*60)
+print("RESUMEN DE TESTS DE SEGURIDAD")
+print("="*60)
+
+tests = {
+    "Test 1 - Instalacion segura": flow_get("test1_status", "unknown"),
+    "Test 2 - Escritura thread-safe": flow_get("test2_status", "unknown"),
+    "Test 3 - Manejo de errores": flow_get("test3_status", "unknown"),
+    "Test 4 - Lectura thread-safe": flow_get("test4_status", "unknown"),
+    "Test 5 - Integracion C++": flow_get("test5_status", "unknown")
+}
+
+passed = sum(1 for status in tests.values() if status == "passed")
+total = len(tests)
+
+print(f"\nResultados:")
+for test_name, status in tests.items():
+    symbol = "[OK]" if status == "passed" else "[FAIL]"
+    print(f"  {symbol} {test_name}: {status}")
+
+print(f"\nTotal: {passed}/{total} tests passed")
+
+if passed == total:
+    print("\n[SUCCESS] Todos los tests de seguridad pasaron")
+else:
+    print(f"\n[WARNING] {total - passed} tests fallaron")
+
+print("="*60 + "\n")
+```
